@@ -1,0 +1,53 @@
+using 'twitter'
+using 'system'
+using 'exceptions/exception_handler' as Exception
+
+class MyClass(ParentClass) {
+
+  this.props = [
+    property1,
+    property2
+  ]
+
+  this.help = "This is a docstring that describes this class. Functions can have one too."
+
+  func private my_func(num: int) => int {
+    if (num >= 1) {
+      return(num);
+    } else {
+      print("hello");
+      return(3);
+    }
+  }
+
+  # This is my comment!
+
+  func my_array_func(my_array: arr, num: int) => arr {
+    loop(true) {
+      print(i);
+    }
+
+    var: arr new_array = [];
+    var: int i = 0;
+    try {
+      loop(i < my_array.length) {
+        new_array.append(i);
+        i++;
+      }
+    } catch (Exception) {
+      print.error(str(Exception) + ' - oh no!')
+    }
+    return([new_array, num]);
+  }
+
+  func private hello() => void {
+    print('Hello, world!');
+  }
+
+  func get_domain(url:str) => str {
+    var: URLHelper url_helper = URLHelper();
+    var: str global domain = url_helper.get(url, headers=null);
+    return(domain);
+  }
+
+}
