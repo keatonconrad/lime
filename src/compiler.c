@@ -174,6 +174,14 @@ static void number() {
     emitConstant(NUMBER_VAL(value));
 }
 
+static void string() {
+    // Takes the string's characters directly from the lexeme,
+    // trimming the leading and trailing quotation marks.
+    // TODO: Support escape sequences like \n
+    emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
+                                    parser.previous.length - 2)));
+}
+ 
 static void unary() {
     // TODO: Store the token's line before compiling the operand
     // and then pass that into emitByte()
@@ -212,7 +220,7 @@ ParseRule rules[] = {
     [TOKEN_LESS]          = {NULL,     binary, PREC_COMPARISON},
     [TOKEN_LESS_EQUAL]    = {NULL,     binary, PREC_COMPARISON},
     [TOKEN_IDENTIFIER]    = {NULL,     NULL,   PREC_NONE},
-    [TOKEN_STRING]        = {NULL,     NULL,   PREC_NONE},
+    [TOKEN_STRING]        = {string,   NULL,   PREC_NONE},
     [TOKEN_NUMBER]        = {number,   NULL,   PREC_NONE},
     [TOKEN_AND]           = {NULL,     NULL,   PREC_NONE},
     [TOKEN_CLASS]         = {NULL,     NULL,   PREC_NONE},
