@@ -23,6 +23,7 @@ struct ObjString {
     Obj obj;
     int length;
     char* chars; // TODO: Implement using a flexible array member instead
+    uint32_t hash;
 };
 
 ObjString* takeString(char* chars, int length);
