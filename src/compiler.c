@@ -169,14 +169,13 @@ static void beginScope() {
 static void endScope() {
     current->scopeDepth--;
 
+    uint8_t popCounter = 0;
     while (current->localCount > 0 &&
            current->locals[current->localCount - 1].depth > current->scopeDepth) {
-        // TODO: To prevent a series of OP_POPs when multiple local variables go
-        // out of scope at once, add a OP_POPN instruction that takes an operand
-        // for the number of slots to pop and pops them all at once
-        emitByte(OP_POP);
+        popCounter++;
         current->localCount--;
     }
+    emitBytes(OP_POPN, popCounter);
 }
 
 static void expression();
