@@ -5,7 +5,7 @@
 #include "table.h"
 #include "value.h"
 
-#define STACK_MAX 256
+#define STACK_MAX 256 // TODO: Allow more stack elements
 
 typedef struct {
     Chunk* chunk;
