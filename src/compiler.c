@@ -183,6 +183,7 @@ static void expression();
 static void statement();
 static void declaration();
 static uint8_t identifierConstant(Token* name);
+static int resolveLocal(Compiler* compiler, Token* name);
 static ParseRule* getRule(TokenType type);
 static void parsePrecedence(Precedence Precedence);
 
