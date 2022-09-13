@@ -63,10 +63,11 @@ ObjString* copyString(const char* chars, int length) {
     return allocateString(heapChars, length, hash);
 }
 
-void printObject(Value value) {
+void printObject(FILE* fptr, Value value) {
     switch (OBJ_TYPE(value)) {
         case OBJ_STRING:
             printf("%s", AS_CSTRING(value));
+            fprintf(fptr, "%s", AS_CSTRING(value));
             break;
     }
 }

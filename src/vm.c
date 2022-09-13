@@ -97,11 +97,11 @@ static InterpretResult run() {
         printf("          ");
         for (Value* slot = vm.stack; slot < vm.stackTop; slot++) {
             printf("[ ");
-            printValue(*slot);
+            //printValue(*slot);
             printf(" ]");
         }
         printf("\n");
-        disassembleInstruction(vm.chunk, (int)(vm.ip - vm.chunk->code));
+        // disassembleInstruction(vm.chunk, (int)(vm.ip - vm.chunk->code));
 #endif
         uint8_t instruction;
         switch (instruction = READ_BYTE()) {
@@ -202,7 +202,8 @@ static InterpretResult run() {
                 push(NUMBER_VAL(-AS_NUMBER(pop())));
                 break;
             case OP_PRINT: {
-                printValue(pop());
+                printf("This is a print instruction...");
+                //printValue(pop());
                 printf("\n");
                 break;
             }
@@ -227,6 +228,9 @@ InterpretResult interpret(const char* source) {
         freeChunk(&chunk);
         return INTERPRET_COMPILE_ERROR;
     }
+
+    printf("------ going here ---------\n");
+    printf("%p", chunk.code);
 
     vm.chunk = &chunk;
     vm.ip = vm.chunk->code;

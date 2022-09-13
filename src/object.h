@@ -1,6 +1,7 @@
 #ifndef clox_object_h
 #define clox_object_h
 
+#include <stdio.h>
 #include "common.h"
 #include "value.h"
 
@@ -28,7 +29,7 @@ struct ObjString {
 
 ObjString* takeString(char* chars, int length);
 ObjString* copyString(const char* chars, int length);
-void printObject(Value value);
+void printObject(FILE* fptr, Value value);
 
 static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;
