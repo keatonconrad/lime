@@ -116,9 +116,7 @@ static InterpretResult run() {
             case OP_POP:   pop(); break;
             case OP_POPN: {
                 uint8_t pops = READ_BYTE();
-                for (int i = 0; i < pops; i++) {
-                    pop();
-                }
+                vm.stackTop -= pops;
                 break;
             }
             case OP_GET_LOCAL: {
@@ -175,8 +173,8 @@ static InterpretResult run() {
                 push(BOOL_VAL(valuesEqual(a, b)));
                 break;
             }
-            case OP_GREATER:  BINARY_OP(BOOL_VAL, >); break;
-            case OP_LESS:     BINARY_OP(BOOL_VAL, <); break;
+            case OP_GREATER: BINARY_OP(BOOL_VAL, >); break;
+            case OP_LESS:    BINARY_OP(BOOL_VAL, <); break;
             case OP_ADD: {
                 if (IS_STRING(peek(0)) && IS_STRING(peek(1))) {
                     concatenate();
