@@ -2,6 +2,8 @@
     "files.associations": {
         "*.h": "c",
         "*.c": "c",
-        "system_error": "c"
+        "system_error": "c",
+        "chrono": "c",
+        "unordered_map": "c"
     }
 }

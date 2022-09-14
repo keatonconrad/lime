@@ -45,6 +45,12 @@ typedef struct {
     int depth; // The scope depth of the block where the local variable was declared
 } Local;
 
+typedef struct {
+	bool isInLoop;
+	int loopStart; // Stores current loop starting position to use with continue.
+	int jumpToExit; // Stores break statement JUMP to patch for exit. This allows only one break per loop
+} LoopMetadata;
+
 // Stores local variable state
 typedef struct {
     Local locals[UINT8_COUNT];
@@ -56,6 +62,7 @@ typedef struct {
 Parser parser;
 Compiler* current = NULL;
 Chunk* compilingChunk;
+LoopMetadata loopMetadata;
 
 static Chunk* currentChunk() {
     return compilingChunk;
@@ -181,6 +188,12 @@ static void patchJump(int offset) {
     currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
+static void initLoopMetadata() {
+	loopMetadata.isInLoop = false;
+	loopMetadata.loopStart = -1;
+	loopMetadata.jumpToExit = -1;
+}
+
 static void initCompiler(Compiler* compiler) {
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
@@ -209,7 +222,8 @@ static void endScope() {
         popCounter++;
         current->localCount--;
     }
-    emitBytes(OP_POPN, popCounter);
+    if (popCounter == 1) emitByte(OP_POP);
+    else if (popCounter > 0) emitBytes(OP_POPN, popCounter);
 }
 
 static void expression();
@@ -562,8 +576,38 @@ static void printStatement() {
     emitByte(OP_PRINT);
 }
 
+static void continueStatement() {
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+    if (!loopMetadata.isInLoop) {
+        error("Invalid continue statement outside loop.");
+    }
+    if (loopMetadata.loopStart != -1) {
+        error("Only one continue statement per loop is allowed.");
+    }
+    emitLoop(loopMetadata.loopStart);
+}
+
+static void breakStatement() {
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'break'.");
+    if (!loopMetadata.isInLoop) {
+        error("Invalid break statement outside loop.");
+    }
+    if (loopMetadata.jumpToExit != -1) {
+        error("Only one break statement per loop is allowed.");
+    }
+    loopMetadata.jumpToExit = emitJump(OP_JUMP);
+}
+
+static void handleLoopMetadata() {
+    if (loopMetadata.jumpToExit != -1) {
+        patchJump(loopMetadata.jumpToExit);
+    }
+    initLoopMetadata();
+}
+
 static void forStatement() {
     beginScope();
+    loopMetadata.isInLoop = true;
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
     
     // Handles the initializer clause
@@ -588,11 +632,12 @@ static void forStatement() {
         exitJump = emitJump(OP_JUMP_IF_FALSE);
         emitByte(OP_POP);
     }
-    
+
     // Handles the increment clause
     if (!match(TOKEN_RIGHT_PAREN)) {
         int bodyJump = emitJump(OP_JUMP);
         int incrementStart = currentChunk()->count;
+        loopMetadata.loopStart = incrementStart;
         expression();
         emitByte(OP_POP);
         consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
@@ -610,11 +655,15 @@ static void forStatement() {
         emitByte(OP_POP);
     }
 
+    handleLoopMetadata();
     endScope();
 }
 
 static void whileStatement() {
     int loopStart = currentChunk()->count;
+    loopMetadata.isInLoop = true;
+    loopMetadata.loopStart = loopStart;
+
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
@@ -626,6 +675,7 @@ static void whileStatement() {
 
     patchJump(exitJump);
     emitByte(OP_POP);
+    handleLoopMetadata();
 }
 
 // Skips tokens indiscriminately until it reaches something that looks
@@ -669,6 +719,10 @@ static void statement() {
         printStatement();
     } else if (match(TOKEN_IF)) {
         ifStatement();
+    } else if (match(TOKEN_BREAK)) {
+        breakStatement();
+    } else if (match(TOKEN_CONTINUE)) {
+        continueStatement();
     } else if (match(TOKEN_WHILE)) {
         whileStatement();
     } else if (match(TOKEN_FOR)) {
@@ -684,6 +738,7 @@ static void statement() {
 
 bool compile(const char* source, Chunk* chunk) {
     initScanner(source);
+    initLoopMetadata();
     Compiler compiler;
     initCompiler(&compiler);
     compilingChunk = chunk;
