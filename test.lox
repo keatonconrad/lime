@@ -1,0 +1,21 @@
+var x = 0;
+
+while (x < 10) {
+    if (x / 2 == 2) {
+        x = x + 1;
+        continue;
+        continue;
+    }
+    print x;
+    x = x + 1;
+}
+
+x = 0;
+while (x < 10) {
+    if (x / 2 == 2) {
+        break;
+        break;
+    }
+    print x;
+    x = x + 1;
+}
