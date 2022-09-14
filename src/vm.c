@@ -80,6 +80,10 @@ static InterpretResult run() {
 // Reads next byte from the bytecode, treats the resulting number as an index, 
 // and looks up the corresponding Value in the chunk's constant table.
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
+// Yanks the next two bytes from the chunk and builds a 16-bit unsigned integer
+// out of them
+#define READ_SHORT() \
+    (vm.ip += 2, (uint16_t)((vm.ip[-2] << 8) | vm.ip[-1]))
 #define READ_STRING() AS_STRING(READ_CONSTANT())
 #define BINARY_OP(valueType, op) \
     do { \
@@ -206,6 +210,21 @@ static InterpretResult run() {
                 printf("\n");
                 break;
             }
+            case OP_JUMP: {
+                uint16_t offset = READ_SHORT();
+                vm.ip += offset;
+                break;
+            }
+            case OP_JUMP_IF_FALSE: {
+                uint16_t offset = READ_SHORT();
+                if (isFalsey(peek(0))) vm.ip += offset;
+                break;
+            }
+            case OP_LOOP: {
+                uint16_t offset = READ_SHORT();
+                vm.ip -= offset;
+                break;
+            }
             case OP_RETURN: {
                 // Exit interpreter
                 return INTERPRET_OK;
@@ -214,6 +233,7 @@ static InterpretResult run() {
     }
 
 #undef READ_BYTE
+#undef READ_SHORT
 #undef READ_CONSTANT
 #undef READ_STRING
 #undef BINARY_OP
