@@ -45,6 +45,11 @@ typedef struct {
     int depth; // The scope depth of the block where the local variable was declared
 } Local;
 
+typedef enum {
+    TYPE_FUNCTION,
+    TYPE_SCRIPT
+} FunctionType;
+
 typedef struct {
 	bool isInLoop;
 	int loopStart; // Stores current loop starting position to use with continue.
@@ -53,6 +58,9 @@ typedef struct {
 
 // Stores local variable state
 typedef struct {
+    ObjFunction* function; // A reference to the function object being built
+    FunctionType type; // Signals function body vs top-level code
+
     Local locals[UINT8_COUNT];
     int localCount; // How many local variables are in scope
     int scopeDepth; // Number of blocks surrounding the current bit of code being compiled
@@ -61,11 +69,10 @@ typedef struct {
 
 Parser parser;
 Compiler* current = NULL;
-Chunk* compilingChunk;
 LoopMetadata loopMetadata;
 
 static Chunk* currentChunk() {
-    return compilingChunk;
+    return &current->function->chunk;
 }
 
 static void errorAt(Token* token, const char* message) {
@@ -194,19 +201,33 @@ static void initLoopMetadata() {
 	loopMetadata.jumpToExit = -1;
 }
 
-static void initCompiler(Compiler* compiler) {
+static void initCompiler(Compiler* compiler, FunctionType type) {
+    compiler->function = NULL;
+    compiler->type = type;
     compiler->localCount = 0;
     compiler->scopeDepth = 0;
+    compiler->function = newFunction();
     current = compiler;
+
+    // The compiler claims stack slot zero for the VM's own internal use
+    Local* local = &current->locals[current->localCount++];
+    local->depth = 0;
+    local->name.start = "";
+    local->name.length = 0;
 }
 
-static void endCompiler() {
+static ObjFunction* endCompiler() {
     emitReturn();
+    ObjFunction* function = current->function;
+
 #ifdef DEBUG_PRINT_CODE
     if (!parser.hadError) {
-        disassembleChunk(currentChunk(), "code");
+        disassembleChunk(currentChunk(), function->name != NULL
+            ? function->name->chars : "<script>");
     }
 #endif
+
+    return function;
 }
 
 static void beginScope() {
@@ -738,12 +759,11 @@ static void statement() {
     }
 }
 
-bool compile(const char* source, Chunk* chunk) {
+ObjFunction* compile(const char* source) {
     initScanner(source);
     initLoopMetadata();
     Compiler compiler;
-    initCompiler(&compiler);
-    compilingChunk = chunk;
+    initCompiler(&compiler, TYPE_SCRIPT);
 
     parser.hadError = false;
     parser.panicMode = false;
@@ -754,7 +774,6 @@ bool compile(const char* source, Chunk* chunk) {
         declaration();
     }
 
-    consume(TOKEN_EOF, "Expect end of expression.");
-    endCompiler();
-    return !parser.hadError;
+    ObjFunction* function = endCompiler();
+    return parser.hadError ? NULL : function;
 }
