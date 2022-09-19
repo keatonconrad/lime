@@ -15,6 +15,15 @@
 #define AS_STRING(value)    ((ObjString*)AS_OBJ(value)) // Casts value to string object
 #define AS_CSTRING(value)   (((ObjString*)AS_OBJ(value))->chars) // Casts value to string object, then extracts the character array
 
+#define initNativePack NativePack pack;\
+    pack.hadError = false;\
+    pack.value = NIL_VAL;
+
+typedef struct {
+    Value value;
+    bool hadError;
+} NativePack;
+
 typedef enum {
     OBJ_FUNCTION,
     OBJ_NATIVE,
@@ -33,7 +42,7 @@ typedef struct {
     ObjString* name;
 } ObjFunction;
 
-typedef Value (*NativeFn)(int argCount, Value* args);
+typedef NativePack (*NativeFn)(int argCount, Value* args);
 
 typedef struct {
     Obj obj;

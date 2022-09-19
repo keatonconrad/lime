@@ -12,10 +12,6 @@
 
 VM vm;
 
-static Value clockNative(int argCount, Value* args) {
-    return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
-}
-
 static void resetStack() {
     vm.stackTop = vm.stack;
     vm.frameCount = 0;
@@ -44,6 +40,18 @@ static void runtimeError(const char* format, ...) {
     }
 
     resetStack();
+}
+
+static NativePack clockNative(int argCount, Value* args) {
+    initNativePack;
+
+    if (argCount != 0) {
+        runtimeError("Expected 0 arguments but got %d.", argCount);
+        pack.hadError = true;
+    }
+
+    pack.value = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+    return pack;
 }
 
 // Takes a pointer to a C function and the Lox name. The function is
@@ -114,10 +122,12 @@ static bool callValue(Value callee, int argCount) {
                 return call(AS_FUNCTION(callee), argCount);
             case OBJ_NATIVE: {
                 NativeFn native = AS_NATIVE(callee);
-                Value result = native(argCount, vm.stackTop - argCount);
-                vm.stackTop -= argCount + 1;
-                push(result);
-                return true;
+                NativePack result = native(argCount, vm.stackTop - argCount);
+                if (!result.hadError) {
+                    vm.stackTop -= argCount + 1;
+                    push(result.value);
+                }
+                return !result.hadError;
             }
             default:
                 break; // Non-callable object type
