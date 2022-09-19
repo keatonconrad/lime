@@ -54,6 +54,8 @@ static NativePack clockNative(int argCount, Value* args) {
     return pack;
 }
 
+static bool isFalsey(Value value);
+
 static NativePack assertNative(int argCount, Value* args) {
     initNativePack;
 
@@ -62,7 +64,7 @@ static NativePack assertNative(int argCount, Value* args) {
         pack.hadError = true;
     }
 
-    if (!AS_BOOL(args[0])) {
+    if (isFalsey(args[0])) {
         runtimeError("Assertion error.");
         pack.hadError = true;
     }
