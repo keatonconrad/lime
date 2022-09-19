@@ -42,6 +42,25 @@ static void runtimeError(const char* format, ...) {
     resetStack();
 }
 
+static NativePack lengthNative(int argCount, Value* args) {
+    initNativePack;
+
+    if (argCount != 1) {
+        runtimeError("Expected 1 argument but got %d.", argCount);
+        pack.hadError = true;
+    }
+
+    int result = 0;
+    if (IS_STRING(args[0])) {
+        result = AS_STRING(args[0])->length;
+    } else {
+        runtimeError("Invalid argument type.");
+        pack.hadError = true;
+    }
+    pack.value = NUMBER_VAL(result);
+    return pack;
+}
+
 static NativePack clockNative(int argCount, Value* args) {
     initNativePack;
 
@@ -51,6 +70,23 @@ static NativePack clockNative(int argCount, Value* args) {
     }
 
     pack.value = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+    return pack;
+}
+
+static NativePack printNative(int argCount, Value* args) {
+    initNativePack;
+
+    if (argCount == 0) {
+        runtimeError("Expected an argument.");
+        pack.hadError = true;
+    }
+
+    for (int i = 0; i < argCount; i++) {
+        if (IS_OBJ(args[i])) printObject(args[i]);
+        else printValue(args[0]);
+        printf(" ");
+    }
+    printf("\n");
     return pack;
 }
 
@@ -71,6 +107,8 @@ void initVM() {
     initTable(&vm.strings);
     
     defineNative("clock", clockNative);
+    defineNative("length", lengthNative);
+    defineNative("print", printNative);
 }
 
 void freeVM() {
@@ -293,11 +331,6 @@ static InterpretResult run() {
                 }
                 push(NUMBER_VAL(-AS_NUMBER(pop())));
                 break;
-            case OP_PRINT: {
-                printValue(pop());
-                printf("\n");
-                break;
-            }
             case OP_JUMP: {
                 uint16_t offset = READ_SHORT();
                 frame->ip += offset;
