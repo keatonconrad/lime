@@ -54,6 +54,23 @@ static NativePack clockNative(int argCount, Value* args) {
     return pack;
 }
 
+static NativePack assertNative(int argCount, Value* args) {
+    initNativePack;
+
+    if (argCount != 1) {
+        runtimeError("Expected 1 argument but got %d.", argCount);
+        pack.hadError = true;
+    }
+
+    if (!AS_BOOL(args[0])) {
+        runtimeError("Assertion error.");
+        pack.hadError = true;
+    }
+
+    pack.value = args[0];
+    return pack;
+}
+
 // Takes a pointer to a C function and the Lox name. The function is
 // wrapped in an ObjNative and stored in a global variable with the given name
 static void defineNative(const char* name, NativeFn function) {
@@ -71,6 +88,7 @@ void initVM() {
     initTable(&vm.strings);
     
     defineNative("clock", clockNative);
+    defineNative("assert", assertNative);
 }
 
 void freeVM() {
