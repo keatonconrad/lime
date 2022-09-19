@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "chunk.h"
+#include "lib.h"
 #include "value.h"
 
 #define OBJ_TYPE(value)     (AS_OBJ(value)->type) // Extracts the object type tag from a Value
@@ -14,15 +15,6 @@
 #define AS_NATIVE(value)    (((ObjNative*)AS_OBJ(value))->function)
 #define AS_STRING(value)    ((ObjString*)AS_OBJ(value)) // Casts value to string object
 #define AS_CSTRING(value)   (((ObjString*)AS_OBJ(value))->chars) // Casts value to string object, then extracts the character array
-
-#define initNativePack NativePack pack;\
-    pack.hadError = false;\
-    pack.value = NIL_VAL;
-
-typedef struct {
-    Value value;
-    bool hadError;
-} NativePack;
 
 typedef enum {
     OBJ_FUNCTION,

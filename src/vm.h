@@ -37,6 +37,8 @@ extern VM vm;
 void initVM();
 void freeVM();
 InterpretResult interpret(const char* source);
+bool isFalsey(Value value);
+void runtimeError(const char* format, ...);
 void push(Value value);
 Value pop();
 

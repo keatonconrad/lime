@@ -1,23 +1,27 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
+#include "lib.h"
 #include "object.h"
 #include "memory.h"
 #include "vm.h"
 
 VM vm;
 
+bool isFalsey(Value value) {
+    return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
 static void resetStack() {
     vm.stackTop = vm.stack;
     vm.frameCount = 0;
 }
 
-static void runtimeError(const char* format, ...) {
+void runtimeError(const char* format, ...) {
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
@@ -40,37 +44,6 @@ static void runtimeError(const char* format, ...) {
     }
 
     resetStack();
-}
-
-static NativePack clockNative(int argCount, Value* args) {
-    initNativePack;
-
-    if (argCount != 0) {
-        runtimeError("Expected 0 arguments but got %d.", argCount);
-        pack.hadError = true;
-    }
-
-    pack.value = NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
-    return pack;
-}
-
-static bool isFalsey(Value value);
-
-static NativePack assertNative(int argCount, Value* args) {
-    initNativePack;
-
-    if (argCount != 1) {
-        runtimeError("Expected 1 argument but got %d.", argCount);
-        pack.hadError = true;
-    }
-
-    if (isFalsey(args[0])) {
-        runtimeError("Assertion error.");
-        pack.hadError = true;
-    }
-
-    pack.value = args[0];
-    return pack;
 }
 
 // Takes a pointer to a C function and the Lox name. The function is
@@ -155,10 +128,6 @@ static bool callValue(Value callee, int argCount) {
     }
     runtimeError("Can only call functions and classes.");
     return false;
-}
-
-static bool isFalsey(Value value) {
-    return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
 static void concatenate() {
