@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "memory.h"
@@ -17,6 +18,15 @@ void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
 
 static void freeObject(Obj* object) {
     switch (object->type) {
+        case OBJ_CLOSURE: {
+            // ObjClosure doesn't own the ObjUpvalue objects, but it does
+            // own the array of pointers to those upvalues
+            ObjClosure* closure = (ObjClosure*)object;
+            FREE_ARRAY(ObjUpvalue*, closure->upvalues,
+                       closure->upvalueCount);
+            FREE(ObjClosure, object);
+            break;
+        }
         case OBJ_FUNCTION: {
             // We don't need to explicitly free the function's name because
             // it's an ObjString, so the garbage collector will manage its
@@ -35,6 +45,9 @@ static void freeObject(Obj* object) {
             FREE(ObjString, object);
             break;
         }
+        case OBJ_UPVALUE:
+            FREE(ObjUpvalue, object);            
+            break;
     }
 }
 

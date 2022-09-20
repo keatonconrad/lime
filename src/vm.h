@@ -10,7 +10,7 @@
 
 // Represents a single outgoing function call
 typedef struct {
-    ObjFunction* function;
+    ObjClosure* closure;
     uint8_t* ip; // When we return from a function, the VM jumps to the ip of the caller's CallFrame and resume from there
     Value* slots; // Points to the first slot in the VM's value stack this function can use
 } CallFrame;
