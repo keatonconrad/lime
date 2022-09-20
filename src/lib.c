@@ -40,3 +40,14 @@ NativePack assertNative(int argCount, Value* args) {
     pack.value = args[0];
     return pack;
 }
+
+NativePack lenNative(int argCount, Value* args) {
+    initNativePack;
+
+    if (!checkArity(&pack, 1, argCount)) return pack;
+
+    if (IS_STRING(args[0])) pack.value = NUMBER_VAL(AS_STRING(args[0])->length);
+    else pack.hadError = true;
+
+    return pack;
+}
