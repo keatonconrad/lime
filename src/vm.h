@@ -23,6 +23,7 @@ typedef struct {
     Value* stackTop; // Points to where the next value to be pushed into the array will go
     Table globals;
     Table strings; // Interned strings
+    ObjUpvalue* openUpvalues;
     Obj* objects;
 } VM;
 

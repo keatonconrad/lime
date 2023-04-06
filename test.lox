@@ -1,8 +1,19 @@
-fun fib(n) {
-  if (n < 2) return n;
-  return fib(n - 2) + fib(n - 1);
+var globalOne;
+var globalTwo;
+
+fun main() {
+  for (var a = 1; a <= 2; a = a + 1) {
+    fun closure() {
+      print a;
+    }
+    if (globalOne == nil) {
+      globalOne = closure;
+    } else {
+      globalTwo = closure;
+    }
+  }
 }
 
-var start = clock();
-print fib(35);
-print clock() - start;
+main();
+globalOne();
+globalTwo();
