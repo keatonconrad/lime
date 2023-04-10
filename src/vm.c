@@ -57,6 +57,43 @@ static void defineNative(const char* name, NativeFn function) {
     pop();
 }
 
+static ObjInstance* defineNativeInstance(const char* name) {
+    // Create the class
+    push(OBJ_VAL(copyString(name, (int)strlen(name))));
+    ObjClass* klass = newClass(AS_STRING(vm.stack[0]));
+
+    // Create an instance of the class
+    ObjInstance* instance = newInstance(klass);
+    return instance;
+}
+
+static void defineNativeMethod(ObjInstance* instance, const char* methodName, NativeFn function) {
+    // Bind the native function as a method of the instance
+    push(OBJ_VAL(copyString(methodName, (int)strlen(methodName))));
+    push(OBJ_VAL(newNative(function)));
+    tableSet(&instance->fields, AS_STRING(vm.stack[1]), vm.stack[2]);
+
+    // Clean up the method name and native function
+    pop();
+    pop();
+
+    // Set testing fields
+    Value boolValue = BOOL_VAL(true);
+    ObjString* isTesting = copyString("isTesting", 9);
+    tableSet(&instance->fields, isTesting, boolValue);
+
+    Value stringValue = OBJ_VAL(copyString("wtf", 4));
+    ObjString* thisWorks = copyString("thisWorks", 9);
+    tableSet(&instance->fields, thisWorks, stringValue);
+
+    // Add the instance to the global scope
+    tableSet(&vm.globals, AS_STRING(vm.stack[0]), OBJ_VAL(instance));
+
+    // Clean up the class name
+    pop();
+}
+
+
 void initVM() {
     resetStack();
     vm.objects = NULL;
@@ -76,6 +113,9 @@ void initVM() {
     defineNative("clock", clockNative);
     defineNative("assert", assertNative);
     defineNative("len", lenNative);
+
+    ObjInstance* instance = defineNativeInstance("time");
+    defineNativeMethod(instance, "newClock", clockNative);
 }
 
 void freeVM() {
