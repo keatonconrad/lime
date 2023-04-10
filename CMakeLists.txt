@@ -7,7 +7,7 @@ project(${PROJ_NAME})
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 11)
 
-option(DEBUG "Debug Version" on)
+option(DEBUG "Debug Version" off)
 
 if(DEBUG)
     add_definitions(-DDEBUG)
