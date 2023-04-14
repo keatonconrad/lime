@@ -89,7 +89,6 @@ struct ASTNode {
         struct {
             ASTNode* callee;
             List* arguments;
-            int arg_count;
         } call;
         struct {
             TokenType token_type;
@@ -114,7 +113,6 @@ struct ASTNode {
             ASTNode* object;
             Token name;
             List* arguments;
-            int arg_count;
         } invoke;
         struct {
             ASTNode* expression;
@@ -193,7 +191,6 @@ ASTNode* new_variable_assignment_node(Token name, VariableAccessType accessType,
 ASTNode* new_variable_access_node(Token name, VariableAccessType accessType, int arg);
 void print_ast_node(ASTNode* node, int depth);
 void print_ast(ASTNode* root);
-void addArgument(ASTNode* callNode, ASTNode* argument);
 
 
 

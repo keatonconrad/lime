@@ -16,11 +16,12 @@ ASTNode* new_binary_node(TokenType operator, ASTNode* left, ASTNode* right) {
 }
 
 ASTNode* new_call_node(ASTNode* callee) {
+    printf("new call node");
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_CALL;
     node->as.call.callee = callee;
-    node->as.call.arguments = NULL;
-    node->as.call.arg_count = NULL;
+    node->as.call.arguments = malloc(sizeof(List));
+    initList(node->as.call.arguments);
     return node;
 }
 
@@ -46,8 +47,8 @@ ASTNode* new_invoke_node(ASTNode* object, Token name) {
     node->type = NODE_INVOKE;
     node->as.invoke.object = object;
     node->as.invoke.name = name;
-    node->as.invoke.arguments = NULL;
-    node->as.invoke.arg_count = NULL;
+    node->as.invoke.arguments = malloc(sizeof(List));
+    initList(node->as.invoke.arguments);
     return node;
 }
 
@@ -172,7 +173,8 @@ ASTNode* new_super_call_node(Token name) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_SUPER_METHOD_CALL;
     node->as.superMethodCall.name = name;
-    node->as.superMethodCall.arguments = NULL;
+    node->as.superMethodCall.arguments = malloc(sizeof(List));
+    initList(node->as.superMethodCall.arguments);
     return node;
 }
 
@@ -298,8 +300,12 @@ void print_ast_node(ASTNode* node, int depth) {
                 print_ast_node((ASTNode*)node->as.call.arguments->values[i], depth + 1);
             }
             break;
-        // Add more cases for other node types here
-        // ...
+        case NODE_NUMBER:
+            printf(" (value: %f)\n", node->as.number.value);
+            break;
+        case NODE_STRING:
+            printf(" (value: %s)\n", node->as.string.string);
+            break;
         default:
             printf("\n");
             break;

@@ -173,14 +173,21 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
         }
         case NODE_CALL: {
             print_ast_node(node->as.call.callee, 0);
-            printf("test ------- \n");
-            print_ast_node((ASTNode*)(node->as.call.arguments->values[0]), 0);
-            printf("test ------- \n");
+            printf("printed callee node ------- \n");
+            // print_ast_node((ASTNode*)(node->as.call.arguments->values[0]), 0);
+            printf("printed values ------- \n");
             emit_bytecode_from_ast(node->as.call.callee, compiler);
-            for (int i = 0; i < node->as.call.arg_count; i++) {
-                emit_bytecode_from_ast((ASTNode*)node->as.call.arguments->values[i], compiler);
+            printf("emitted callee node ------- \n");
+            if (node->as.call.arguments != NULL) {
+                printf("arguments count: %d", node->as.call.arguments->count);
+                for (int i = 0; i < node->as.call.arguments->count; i++) {
+                    emit_bytecode_from_ast((ASTNode*)node->as.call.arguments->values[i], compiler);
+                    printf("emitted argument node ------- \n");
+                }
+            } else {
+                printf("no arguments ------- \n");
             }
-            emitBytes(OP_CALL, node->as.call.arg_count);
+            emitBytes(OP_CALL, node->as.call.arguments->count);
             break;
         }
         case NODE_GET_PROPERTY: {
