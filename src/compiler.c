@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "list.h"
+#include "ast.h"
 #include "common.h"
 #include "compiler.h"
 #include "memory.h"
@@ -32,7 +34,7 @@ typedef enum {
     PREC_PRIMARY
 } Precedence;
 
-typedef void (*ParseFn)(bool canAssign);
+typedef ASTNode* (*ParseFn)(bool canAssign);
 
 typedef struct {
     ParseFn prefix; // Fn to compile prefix expression starting with token of that type
@@ -51,13 +53,6 @@ typedef struct {
     uint8_t index; // Stores which local slot the upvalue is capturing
     bool isLocal; // Whether the closure captures a local variable or an upvalue from the surrounding function
 } Upvalue;
-
-typedef enum {
-    TYPE_FUNCTION,
-    TYPE_METHOD,
-    TYPE_INITIALIZER,
-    TYPE_SCRIPT
-} FunctionType;
 
 typedef struct {
 	bool isInLoop;
@@ -119,6 +114,7 @@ static void errorAtCurrent(const char* message) {
 
 static void advance() {
     parser.previous = parser.current;
+    printf("Hi");
 
     for (;;) {
         parser.current = scanToken();
@@ -126,6 +122,8 @@ static void advance() {
 
         errorAtCurrent(parser.current.start);
     }
+
+    printf("fuck");
 }
 
 static void consume(TokenType type, const char* message) {
@@ -286,37 +284,27 @@ static void endScope() {
     else if (popCounter > 0) emitBytes(OP_POPN, popCounter);
 }
 
-static void expression();
-static void statement();
-static void declaration();
-static void and_(bool canAssign);
+static ASTNode* expression();
+static ASTNode* statement();
+static ASTNode* declaration();
+static ASTNode* and_(bool canAssign);
 static uint8_t identifierConstant(Token* name);
 static int resolveLocal(Compiler* compiler, Token* name);
 static int resolveUpvalue(Compiler* compiler, Token* name);
 static ParseRule* getRule(TokenType type);
-static void parsePrecedence(Precedence Precedence);
+static ASTNode* parsePrecedence(Precedence Precedence);
 
-static void binary(bool canAssign) {
+static ASTNode* binary(bool canAssign) {
     TokenType operatorType = parser.previous.type;
     ParseRule* rule = getRule(operatorType);
-    // Each binary operator's right hand oeprand precedence is
-    // one level higher than its own
     parsePrecedence((Precedence)(rule->precedence + 1));
 
-    switch (operatorType) {
-        case TOKEN_BANG_EQUAL:    emitBytes(OP_EQUAL, OP_NOT); break;
-        case TOKEN_EQUAL_EQUAL:   emitByte(OP_EQUAL); break;
-        case TOKEN_GREATER:       emitByte(OP_GREATER); break;
-        case TOKEN_GREATER_EQUAL: emitBytes(OP_LESS, OP_NOT); break;
-        case TOKEN_LESS:          emitByte(OP_LESS); break;
-        case TOKEN_LESS_EQUAL:    emitBytes(OP_GREATER, OP_NOT); break;
-        case TOKEN_PLUS:          emitByte(OP_ADD); break;
-        case TOKEN_MINUS:         emitByte(OP_SUBTRACT); break;
-        case TOKEN_STAR:          emitByte(OP_MULTIPLY); break;
-        case TOKEN_SLASH:         emitByte(OP_DIVIDE); break;
-        default: return; // Unreachable
-    }
+    ASTNode* left = expression();
+    ASTNode* right = expression();
+    
+    return new_binary_node(operatorType, left, right);
 }
+
 
 static uint8_t argumentList() {
     uint8_t argCount = 0;
@@ -331,12 +319,22 @@ static uint8_t argumentList() {
     return argCount;
 }
 
-static void call(bool canAssign) {
+static void PREV_call(bool canAssign) {
     uint8_t argCount = argumentList();
     emitBytes(OP_CALL, argCount);
 }
 
-static void dot(bool canAssign) {
+static ASTNode* call(bool canAssign) {
+    uint8_t argCount = argumentList();
+    ASTNode* callee = expression();
+    ASTNode** arguments = malloc(sizeof(ASTNode*) * argCount);
+    for (int i = 0; i < argCount; i++) {
+        arguments[i] = expression();
+    }
+    return new_call_node(callee, arguments, argCount);
+}
+
+static void PREV_dot(bool canAssign) {
     consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
     uint8_t name = identifierConstant(&parser.previous);
 
@@ -352,7 +350,52 @@ static void dot(bool canAssign) {
     }
 }
 
-static void literal(bool canAssign) {
+static ASTNode* dot(bool canAssign) {
+    consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
+    uint8_t name = identifierConstant(&parser.previous);
+    ASTNode* object;
+    ASTNode* value;
+    NodeType nodeType;
+    ASTNode** arguments;
+    uint8_t argCount = 0;
+
+    if (canAssign && match(TOKEN_EQUAL)) {
+        value = expression();
+        nodeType = NODE_SET_PROPERTY;
+    } else if (match(TOKEN_LEFT_PAREN)) {
+        argCount = argumentList();
+        arguments = malloc(sizeof(ASTNode*) * argCount);
+        for (int i = 0; i < argCount; i++) {
+            arguments[i] = expression(); // Assuming the expressions were stored on a stack or similar data structure
+        }
+        nodeType = NODE_INVOKE;
+    } else {
+        nodeType = NODE_GET_PROPERTY;
+    }
+
+    ASTNode* node;
+    node->type = nodeType;
+    switch (nodeType) {
+        case NODE_SET_PROPERTY: {
+            node = new_set_property_node(object, name, value);
+            break;
+        }
+        case NODE_INVOKE: {
+            node = new_invoke_node(object, name, arguments, argCount);
+            break;
+        }
+        case NODE_GET_PROPERTY: {
+            node = new_get_property_node(object, name);
+            break;
+        }
+        default: break; // Unreachable
+    }
+
+    return node;
+}
+
+
+static void PREV_literal(bool canAssign) {
     switch (parser.previous.type) {
         case TOKEN_FALSE: emitByte(OP_FALSE); break;
         case TOKEN_NIL: emitByte(OP_NIL); break;
@@ -361,17 +404,37 @@ static void literal(bool canAssign) {
     }
 }
 
-static void grouping(bool canAssign) {
+static ASTNode* literal(bool canAssign) {
+    switch (parser.previous.type) {
+        case TOKEN_FALSE: return new_literal_node(TOKEN_FALSE);
+        case TOKEN_NIL: return new_literal_node(TOKEN_NIL);
+        case TOKEN_TRUE: return new_literal_node(TOKEN_TRUE);
+        default: return NULL; // Unreachable
+    }
+}
+
+static void PREV_grouping(bool canAssign) {
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void number(bool canAssign) {
+static ASTNode* grouping(bool canAssign) {
+    ASTNode* node = expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+    return node;
+}
+
+static void PREV_number(bool canAssign) {
     double value = strtod(parser.previous.start, NULL);
     emitConstant(NUMBER_VAL(value));
 }
 
-static void or_(bool canAssign) {
+static ASTNode* number(bool canAssign) {
+    double value = strtod(parser.previous.start, NULL);
+    return new_number_node(value);
+}
+
+static void PREV_or_(bool canAssign) {
     int trueJump = emitJump(OP_JUMP_IF_TRUE);
     emitByte(OP_POP);
 
@@ -379,7 +442,13 @@ static void or_(bool canAssign) {
     patchJump(trueJump);
 }
 
-static void string(bool canAssign) {
+static ASTNode* or_(bool canAssign) {
+    ASTNode* left = expression();
+    ASTNode* right = expression();
+    return new_logical_node(TOKEN_OR, left, right);
+}
+
+static void PREV_string(bool canAssign) {
     // Start at index 1 to skip the opening quotation mark.
     int inputIndex = 1;
     int outputIndex = 0;
@@ -433,8 +502,59 @@ static void string(bool canAssign) {
     free(processedString);
 }
 
+static ASTNode* string(bool canAssign) {
+    // Start at index 1 to skip the opening quotation mark.
+    int inputIndex = 1;
+    int outputIndex = 0;
 
-static void namedVariable(Token name, bool canAssign) {
+    // Allocate space for the processed string.
+    // The length is equal to the lexeme length minus the quotation marks.
+    int outputLength = parser.previous.length - 2;
+    char* processedString = (char*)malloc(outputLength + 1);  // +1 for null terminator
+
+    // Process the string, handling escape sequences.
+    while (inputIndex < parser.previous.length - 1) {  // Stop before the closing quotation mark
+        char current = parser.previous.start[inputIndex];
+        if (current == '\\') {  // Escape sequence
+            inputIndex++;  // Move to the next character after the backslash
+            char escaped = parser.previous.start[inputIndex];
+
+            switch (escaped) {
+                case 'n':
+                    processedString[outputIndex++] = '\n';
+                    break;
+                case 'r':
+                    processedString[outputIndex++] = '\r';
+                    break;
+                case 't':
+                    processedString[outputIndex++] = '\t';
+                    break;
+                case 'b':
+                    processedString[outputIndex++] = '\b';
+                    break;
+                case 'f':
+                    processedString[outputIndex++] = '\f';
+                    break;
+                default:
+                    // Copy the character after the backslash without processing
+                    processedString[outputIndex++] = '\\';
+                    processedString[outputIndex++] = escaped;
+            }
+        } else {
+            processedString[outputIndex++] = current;
+        }
+        inputIndex++;
+    }
+
+    // Add null terminator to the processed string
+    processedString[outputIndex] = '\0';
+
+    // Emit the constant with the processed string
+    return new_string_node(processedString);
+}
+
+
+static void PREV_namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
     int arg = resolveLocal(current, &name);
     if (arg != -1) {
@@ -457,8 +577,29 @@ static void namedVariable(Token name, bool canAssign) {
     }
 }
 
-static void variable(bool canAssign) {
-    namedVariable(parser.previous, canAssign);
+static ASTNode* namedVariable(Token name, bool canAssign) {
+    VariableAccessType accessType;
+    int arg = resolveLocal(current, &name);
+    if (arg != -1) {
+        accessType = ACCESS_LOCAL;
+    } else if ((arg = resolveUpvalue(current, &name)) != -1) {
+        accessType = ACCESS_UPVALUE;
+    } else {
+        arg = identifierConstant(&name);
+        accessType = ACCESS_GLOBAL;
+    }
+
+    if (canAssign && match(TOKEN_EQUAL)) {
+        ASTNode* value = expression();
+        return new_variable_assignment_node(name, accessType, arg, value);
+    } else {
+        return new_variable_access_node(name, accessType, arg);
+    }
+}
+
+
+static ASTNode* variable(bool canAssign) {
+    return namedVariable(parser.previous, canAssign);
 }
 
 static Token syntheticToken(const char* text) {
@@ -468,7 +609,7 @@ static Token syntheticToken(const char* text) {
     return token;
 }
 
-static void super_(bool canAssign) {
+static void PREV_super_(bool canAssign) {
     if (currentClass == NULL) {
         error("Can't use 'super' outside of a class.");
     } else if (!currentClass->hasSuperclass) {
@@ -493,16 +634,38 @@ static void super_(bool canAssign) {
     }
 }
 
-static void this_(bool canAssign) {
+static ASTNode* super_(bool canAssign) {
+    if (currentClass == NULL) {
+        error("Can't use 'super' outside of a class.");
+    } else if (!currentClass->hasSuperclass) {
+        error("Can't use 'super' in a class with no superclass.");
+    }
+
+    consume(TOKEN_DOT, "Expect '.' after 'super'.");
+    consume(TOKEN_IDENTIFIER, "Expect superclass method name.");
+    Token name = parser.previous;
+    // Generates code to look up the current receiver stored in "this" and push it onto the stack
+    namedVariable(syntheticToken("this"), false);
+    if (match(TOKEN_LEFT_PAREN)) {
+        uint8_t argCount = argumentList();
+        namedVariable(syntheticToken("super"), false);
+        return new_super_call_node(name, argCount);
+    } else {
+        // Generates code to look up the superclass from "super" and push it onto the stack
+        namedVariable(syntheticToken("super"), false);
+        return new_super_property_access_node(name);
+    }
+}
+
+static ASTNode* this_(bool canAssign) {
     if (currentClass == NULL) {
         error("Can't use 'this' outside of a class.");
-        return;
     }
     
-    variable(false);
+    return variable(false);
 }
- 
-static void unary(bool canAssign) {
+
+static void PREV_unary(bool canAssign) {
     // TODO: Store the token's line before compiling the operand
     // and then pass that into emitByte()
     TokenType operatorType = parser.previous.type;
@@ -516,6 +679,15 @@ static void unary(bool canAssign) {
         case TOKEN_MINUS: emitByte(OP_NEGATE); break;
         default: return; // Unreachable
     }
+}
+
+static ASTNode* unary(bool canAssign) {
+    TokenType operatorType = parser.previous.type;
+
+    // Compile the operand
+    ASTNode* right = parsePrecedence(PREC_UNARY);
+
+    return new_unary_node(operatorType, right);
 }
 
 // Maps a ParseRule to the index of the token type in TokenType
@@ -563,30 +735,30 @@ ParseRule rules[] = {
     [TOKEN_EOF]           = {NULL,     NULL,   PREC_NONE},
 };
 
-static void parsePrecedence(Precedence precedence) {
+static ASTNode* parsePrecedence(Precedence precedence) {
     // Starts at the current token and parses any expression at
     // the given precedence level or higher
     advance();
     ParseFn prefixRule = getRule(parser.previous.type)->prefix;
     if (prefixRule == NULL) {
         error("Expect expression.");
-        return;
     }
 
     // variable() should look for and consume the = only if it's in
     // the context of a low-precedence expression
     bool canAssign = precedence <= PREC_ASSIGNMENT;
-    prefixRule(canAssign);
+    ASTNode* leftNode = prefixRule(canAssign);
 
     while (precedence <= getRule(parser.current.type)->precedence) {
         advance();
         ParseFn infixRule = getRule(parser.previous.type)->infix;
-        infixRule(canAssign);
+        leftNode = infixRule(canAssign);
 
         if (canAssign && match(TOKEN_EQUAL)) {
             error("Invalid assignment target.");
         }
     }
+    return leftNode;
 }
 
 static uint8_t identifierConstant(Token* name) {
@@ -722,7 +894,7 @@ static void defineVariable(uint8_t global) {
     emitBytes(OP_DEFINE_GLOBAL, global);
 }
 
-static void and_(bool canAssign) {
+static void PREV_and_(bool canAssign) {
     int endJump = emitJump(OP_JUMP_IF_FALSE);
 
     emitByte(OP_POP);
@@ -731,16 +903,22 @@ static void and_(bool canAssign) {
     patchJump(endJump);
 }
 
+static ASTNode* and_(bool canAssign) {
+    ASTNode* left = expression();
+    ASTNode* right = expression();
+    return new_logical_node(TOKEN_AND, left, right);
+}
+
 static ParseRule* getRule(TokenType type) {
     return &rules[type];
 }
 
-static void expression() {
+static ASTNode* expression() {
     // Parse the lowest precedence level
-    parsePrecedence(PREC_ASSIGNMENT);
+    return parsePrecedence(PREC_ASSIGNMENT);
 }
 
-static void block() {
+static void PREV_block() {
     while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
         declaration();
     }
@@ -748,8 +926,18 @@ static void block() {
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
 }
 
+static ASTNode* block() {
+    ASTNode* node = new_block_node();
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+        node->as.block.statements[node->as.block.statement_count++] = declaration();
+    }
+
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
+    return node;
+}
+
 // Leaves function on the top of the stack
-static void function(FunctionType type) {
+static void PREV_function(FunctionType type) {
     Compiler compiler;
     initCompiler(&compiler, type);
     beginScope();
@@ -781,7 +969,35 @@ static void function(FunctionType type) {
     }
 }
 
-static void method() {
+static ASTNode* function(FunctionType type) {
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
+
+    if (!check(TOKEN_RIGHT_PAREN)) {
+        do {
+            current->function->arity++;
+            if (current->function->arity > 255) {
+                errorAtCurrent("Can't have more than 255 parameters.");
+            }
+            uint8_t constant = parseVariable("Expect parameter name.");
+            defineVariable(constant);
+        } while (match(TOKEN_COMMA));
+    }
+
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
+
+    ASTNode* body = block();
+    ASTNode* node = new_function_node(parser.previous, current->function->arity, type, body);
+
+    endScope();
+
+    return node;
+}
+
+
+static void PREV_method() {
     consume(TOKEN_IDENTIFIER, "Expect method name.");
     uint8_t constant = identifierConstant(&parser.previous);
 
@@ -793,7 +1009,20 @@ static void method() {
     emitBytes(OP_METHOD, constant);
 }
 
-static void classDeclaration() {
+static ASTNode* method() {
+    consume(TOKEN_IDENTIFIER, "Expect method name.");
+    uint8_t constant = identifierConstant(&parser.previous);
+
+    FunctionType type = TYPE_METHOD;
+    if (parser.previous.length == 4 && memcmp(parser.previous.start, "init", 4) == 0) {
+        type = TYPE_INITIALIZER;
+    }
+    ASTNode* body = function(type);
+    return new_function_node(parser.previous, current->function->arity, type, body);
+}
+
+
+static void PREV_classDeclaration() {
     consume(TOKEN_IDENTIFIER, "Expect class name.");
     Token className = parser.previous;
     uint8_t nameConstant = identifierConstant(&parser.previous);
@@ -838,14 +1067,77 @@ static void classDeclaration() {
     currentClass = currentClass->enclosing;
 }
 
-static void funDeclaration() {
+static ASTNode* classDeclaration() {
+    consume(TOKEN_IDENTIFIER, "Expect class name.");
+    Token className = parser.previous;
+    uint8_t nameConstant = identifierConstant(&parser.previous);
+    declareVariable();
+
+    emitBytes(OP_CLASS, nameConstant);
+    defineVariable(nameConstant);
+
+    ClassCompiler classCompiler;
+    classCompiler.hasSuperclass = false;
+    classCompiler.enclosing = currentClass;
+    currentClass = &classCompiler;
+
+    // If we see a "<" token, we're inheriting from another class
+    Token superclass = syntheticToken(""); // Empty superclass token
+    if (match(TOKEN_LESS)) {
+        consume(TOKEN_IDENTIFIER, "Expect superclass name.");
+        superclass = parser.previous;
+        variable(false); // Looks up the superclass by name and pushes it onto the stack
+        if (identifiersEqual(&className, &parser.previous)) {
+            error("A class can't inherit from itself.");
+        }
+
+        beginScope();
+        addLocal(syntheticToken("super"));
+        defineVariable(0);
+
+        namedVariable(className, false); // Loads the subclass onto the stack
+        emitByte(OP_INHERIT);
+        classCompiler.hasSuperclass = true;
+    }
+
+    namedVariable(className, false);
+    consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
+
+    List methods;
+    initList(&methods);
+    while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
+        ASTNode* methodNode = method();
+        writeList(&methods, methodNode);
+    }
+
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
+    emitByte(OP_POP);
+
+    if (classCompiler.hasSuperclass) {
+        endScope();
+    }
+    currentClass = currentClass->enclosing;
+
+    return new_class_declaration_node(className, superclass, classCompiler.hasSuperclass, methods);
+}
+
+
+static void PREV_funDeclaration() {
     uint8_t global = parseVariable("Expect function name.");
     markInitialized();
     function(TYPE_FUNCTION);
     defineVariable(global);
 }
 
-static void varDeclaration() {
+static ASTNode* funDeclaration() {
+    uint8_t global = parseVariable("Expect function name.");
+    markInitialized();
+    ASTNode* node = function(TYPE_FUNCTION);
+    defineVariable(global);
+    return node;
+}
+
+static void PREV_varDeclaration() {
     uint8_t global = parseVariable("Expect variable name.");
 
     if (match(TOKEN_EQUAL)) {
@@ -858,14 +1150,35 @@ static void varDeclaration() {
     defineVariable(global);
 }
 
+static ASTNode* varDeclaration() {
+    uint8_t global = parseVariable("Expect variable name.");
+
+    ASTNode* node = NULL;
+    if (match(TOKEN_EQUAL)) {
+        node = expression();
+    } else {
+        node = new_literal_node(TOKEN_NIL);
+    }
+    consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+    defineVariable(global);
+    return node;
+}
+
 // Evaluates an expression, then discards the result
-static void expressionStatement() {
+static void PREV_expressionStatement() {
     expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
     emitByte(OP_POP);
 }
 
-static void ifStatement() {
+static ASTNode* expressionStatement() {
+    printf("maybe?");
+    ASTNode* node = expression();
+    consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
+    return node;
+}
+
+static void PREV_ifStatement() {
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
@@ -883,7 +1196,22 @@ static void ifStatement() {
     patchJump(elseJump);
 }
 
-static void returnStatement() {
+static ASTNode* ifStatement() {
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+    ASTNode* condition = expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    ASTNode* thenBranch = block();
+
+    ASTNode* elseBranch = NULL;
+    if (match(TOKEN_ELSE)) {
+        elseBranch = block();
+    }
+
+    return new_if_statement_node(condition, thenBranch, elseBranch);
+}
+
+static void PREV_returnStatement() {
     if (current->type == TYPE_SCRIPT) {
         error("Can't return from top-level code.");
     }
@@ -900,7 +1228,26 @@ static void returnStatement() {
     }
 }
 
-static void continueStatement() {
+static ASTNode* returnStatement() {
+    if (current->type == TYPE_SCRIPT) {
+        error("Can't return from top-level code.");
+    }
+
+    ASTNode* node = NULL;
+    if (match(TOKEN_SEMICOLON)) {
+        node = new_return_statement_node(NULL);
+    } else {
+        if (current->type == TYPE_INITIALIZER) {
+            error("Can't return a value from an initializer.");
+        }
+        ASTNode* expr = expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after return value.");
+        node = new_return_statement_node(expr);
+    }
+    return node;
+}
+
+static void PREV_continueStatement() {
     consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
     if (!loopMetadata.isInLoop) {
         error("Invalid continue statement outside loop.");
@@ -911,7 +1258,21 @@ static void continueStatement() {
     emitLoop(loopMetadata.loopStart);
 }
 
-static void breakStatement() {
+static ASTNode* continueStatement() {
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+    if (!loopMetadata.isInLoop) {
+        error("Invalid continue statement outside loop.");
+    }
+    if (loopMetadata.loopStart != -1) {
+        error("Only one continue statement per loop is allowed.");
+    }
+    int offset = currentChunk()->count - loopMetadata.loopStart + 2;
+    if (offset > UINT16_MAX) error("Loop body too large.");
+    ASTNode* node = new_continue_statement_node(offset);
+    return node;
+}
+
+static void PREV_breakStatement() {
     consume(TOKEN_SEMICOLON, "Expect ';' after 'break'.");
     if (!loopMetadata.isInLoop) {
         error("Invalid break statement outside loop.");
@@ -922,6 +1283,18 @@ static void breakStatement() {
     loopMetadata.jumpToExit = emitJump(OP_JUMP);
 }
 
+static ASTNode* breakStatement() {
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'break'.");
+    if (!loopMetadata.isInLoop) {
+        error("Invalid break statement outside loop.");
+    }
+    if (loopMetadata.jumpToExit != -1) {
+        error("Only one break statement per loop is allowed.");
+    }
+    ASTNode* node = new_break_statement_node();
+    return node;
+}
+
 static void handleLoopMetadata() {
     if (loopMetadata.jumpToExit != -1) {
         patchJump(loopMetadata.jumpToExit);
@@ -929,7 +1302,7 @@ static void handleLoopMetadata() {
     initLoopMetadata();
 }
 
-static void forStatement() {
+static void PREV_forStatement() {
     beginScope();
     loopMetadata.isInLoop = true;
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
@@ -983,7 +1356,46 @@ static void forStatement() {
     endScope();
 }
 
-static void whileStatement() {
+static ASTNode* forStatement() {
+    ASTNode* forNode = malloc(sizeof(ASTNode));
+    forNode->type = NODE_FOR_STATEMENT;
+    beginScope();
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+
+    // Handles the initializer clause
+    if (match(TOKEN_SEMICOLON)) {
+        forNode->as.for_statement.initializer = NULL;
+    } else if (match(TOKEN_VAR)) {
+        forNode->as.for_statement.initializer = varDeclaration();
+    } else {
+        forNode->as.for_statement.initializer = expressionStatement();
+    }
+
+    // Handles the condition clause
+    if (match(TOKEN_SEMICOLON)) {
+        forNode->as.for_statement.condition = NULL;
+    } else {
+        forNode->as.for_statement.condition = expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+    }
+
+    // Handles the increment clause
+    if (match(TOKEN_RIGHT_PAREN)) {
+        forNode->as.for_statement.increment = NULL;
+    } else {
+        forNode->as.for_statement.increment = expression();
+        consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+    }
+
+    forNode->as.for_statement.body = statement();
+
+    endScope();
+    return forNode;
+}
+
+
+static void PREV_whileStatement() {
     int loopStart = currentChunk()->count;
     loopMetadata.isInLoop = true;
     loopMetadata.loopStart = loopStart;
@@ -1001,6 +1413,20 @@ static void whileStatement() {
     emitByte(OP_POP);
     handleLoopMetadata();
 }
+
+static ASTNode* whileStatement() {
+    ASTNode* whileNode = malloc(sizeof(ASTNode));
+    whileNode->type = NODE_WHILE_STATEMENT;
+
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    whileNode->as.while_statement.condition = expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    whileNode->as.while_statement.body = statement();
+
+    return whileNode;
+}
+
 
 // Skips tokens indiscriminately until it reaches something that looks
 // like a statement boundary.
@@ -1027,39 +1453,40 @@ static void synchronize() {
     }
 }
 
-static void declaration() {
+static ASTNode* declaration() {
     if (match(TOKEN_CLASS)) {
-        classDeclaration();
+        return classDeclaration();
     } else if (match(TOKEN_FUN)) {
-        funDeclaration();
+        return funDeclaration();
     } else if (match(TOKEN_VAR)) {
-        varDeclaration();
+        return varDeclaration();
     } else {
-        statement();
+        return statement();
     }
 
     if (parser.panicMode) synchronize();
 }
 
-static void statement() {
+static ASTNode* statement() {
     if (match(TOKEN_IF)) {
-        ifStatement();
+        return ifStatement();
     } else if (match(TOKEN_BREAK)) {
-        breakStatement();
+        return breakStatement();
     } else if (match(TOKEN_CONTINUE)) {
-        continueStatement();
+        return continueStatement();
     } else if (match(TOKEN_WHILE)) {
-        whileStatement();
+        return whileStatement();
     } else if (match(TOKEN_FOR)) {
-        forStatement();
+        return forStatement();
     } else if (match(TOKEN_RETURN)) {
-        returnStatement();
+        return returnStatement();
     } else if (match(TOKEN_LEFT_BRACE)) {
         beginScope();
-        block();
+        ASTNode* result = block();
         endScope();
+        return result;
     } else {
-        expressionStatement();
+        return expressionStatement();
     }
 }
 
@@ -1074,8 +1501,9 @@ ObjFunction* compile(const char* source) {
     
     advance();
     
+    ASTNode* node;
     while (!match(TOKEN_EOF)) {
-        declaration();
+        node = declaration();
     }
 
     ObjFunction* function = endCompiler();

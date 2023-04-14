@@ -1,7 +1,1 @@
-class Doughnut {
-  init() {
-    this.type = "crueller";
-  }
-}
-garbage();
-print(Doughnut().type); // undefined
+print("hello");
