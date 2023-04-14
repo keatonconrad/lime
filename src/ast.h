@@ -1,10 +1,11 @@
 #ifndef clox_ast_h
 #define clox_ast_h
 
+#include <stdbool.h>
 #include <stdlib.h>
 
-#include "list.h"
 #include "compiler.h"
+#include "list.h"
 #include "scanner.h"
 
 typedef struct ASTNode ASTNode;
@@ -67,7 +68,7 @@ typedef struct {
 
 typedef struct {
     Token name;
-    ASTNode** arguments;
+    List* arguments;
 } SuperMethodCallNodeData;
 
 typedef struct {
@@ -87,7 +88,7 @@ struct ASTNode {
         BinaryNodeData logical;
         struct {
             ASTNode* callee;
-            ASTNode** arguments;
+            List* arguments;
             int arg_count;
         } call;
         struct {
@@ -112,7 +113,7 @@ struct ASTNode {
         struct {
             ASTNode* object;
             Token name;
-            ASTNode** arguments;
+            List* arguments;
             int arg_count;
         } invoke;
         struct {
@@ -166,10 +167,10 @@ struct ASTNode {
 
 // Functions to create ASTNode instances
 ASTNode* new_binary_node(TokenType operator, ASTNode* left, ASTNode* right);
-ASTNode* new_call_node(ASTNode* callee, ASTNode** arguments, int arg_count);
+ASTNode* new_call_node(ASTNode* callee);
 ASTNode* new_get_property_node(ASTNode* object, Token name);
 ASTNode* new_set_property_node(ASTNode* object, Token name, ASTNode* value);
-ASTNode* new_invoke_node(ASTNode* object, Token name, ASTNode** arguments, int arg_count);
+ASTNode* new_invoke_node(ASTNode* object, Token name);
 ASTNode* new_literal_node(TokenType token_type);
 ASTNode* new_number_node(double value);
 ASTNode* new_unary_node(TokenType operator, ASTNode* operand);
@@ -184,7 +185,7 @@ ASTNode* new_return_statement_node(ASTNode* value);
 ASTNode* new_class_declaration_node(Token name, Token superclass, bool hasSuperclass, List methods);
 ASTNode* new_block_node();
 ASTNode* new_super_property_access_node(Token name);
-ASTNode* new_super_call_node(Token name, ASTNode** arguments);
+ASTNode* new_super_call_node(Token name);
 ASTNode* new_string_node(char* string);
 ASTNode* new_continue_statement_node(int offset);
 ASTNode* new_break_statement_node();
@@ -192,6 +193,7 @@ ASTNode* new_variable_assignment_node(Token name, VariableAccessType accessType,
 ASTNode* new_variable_access_node(Token name, VariableAccessType accessType, int arg);
 void print_ast_node(ASTNode* node, int depth);
 void print_ast(ASTNode* root);
+void addArgument(ASTNode* callNode, ASTNode* argument);
 
 
 

@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ast.h"
+#include "codegen.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -610,8 +612,14 @@ static InterpretResult run() {
 }
 
 InterpretResult interpret(const char* source) {
-    ObjFunction* function = compile(source);
-    if (function == NULL) return INTERPRET_COMPILE_ERROR;
+    ASTNode* rootNode = compile(source);
+    if (rootNode == NULL) return INTERPRET_COMPILE_ERROR;
+
+    // Print the AST
+    // printAST(rootNode);
+
+    // Generate bytecode
+    ObjFunction* function = compileASTToBytecode(rootNode);
 
     // Stores the function that's being called on the stack, in stack slot zero
     push(OBJ_VAL(function));

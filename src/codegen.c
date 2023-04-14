@@ -1,13 +1,66 @@
+#include <stdio.h>
+
 #include "codegen.h"
 #include "ast.h"
 #include "chunk.h"
 #include "value.h"
 #include "scanner.h"
 
+// Stores local variable
+typedef struct {
+    Token name; // The name of the variable
+    int depth; // The scope depth of the block where the local variable was declared
+    bool isCaptured; // Whether the local variable is captured by a closure
+} Local;
+
+typedef struct {
+    uint8_t index; // Stores which local slot the upvalue is capturing
+    bool isLocal; // Whether the closure captures a local variable or an upvalue from the surrounding function
+} Upvalue;
+
+typedef struct _Compiler {
+    struct _Compiler* enclosing;
+    ObjFunction* function; // A reference to the function object being built
+    FunctionType type; // Signals function body vs top-level code
+
+    Local locals[UINT8_COUNT];
+    int localCount; // How many local variables are in scope
+    Upvalue upvalues[UINT8_COUNT];
+    int scopeDepth; // Number of blocks surrounding the current bit of code being compiled
+} Compiler;
+
+static Compiler* current;
+
+static void errorAt(Token* token, const char* message) {
+    fprintf(stderr, "[line %d] Error", token->line);
+
+    if (token->type == TOKEN_EOF) {
+        fprintf(stderr, " at end");
+    } else if (token->type == TOKEN_ERROR) {
+        // Nothing
+    } else {
+        fprintf(stderr, " at '%.*s'", token->length, token->start);
+    }
+
+    fprintf(stderr, ": %s\n", message);
+}
+
+static void error(const char* message) {
+    errorAt("token", message);
+}
+
+static void errorAtCurrent(const char* message) {
+    errorAt("token", message);
+}
+
+static Chunk* currentChunk() {
+    return &current->function->chunk;
+}
+
 // Sends in previous token's line information so that runtime
 // errors are associated with that line
 static void emitByte(uint8_t byte) {
-    // writeChunk(currentChunk(), byte, 1);
+    writeChunk(currentChunk(), byte, 1);
 }
 
 static void emitBytes(uint8_t byte1, uint8_t byte2) {
@@ -22,7 +75,7 @@ static void emitLoop(int loopStart) {
     // own operands which we also need to jump over
     // int offset = currentChunk()->count - loopStart + 2;
     int offset = 0;
-    if (offset > UINT16_MAX) return; // error("Loop body too large.");
+    if (offset > UINT16_MAX) error("Loop body too large.");
 
     emitByte((offset >> 8) & 0xff);
     emitByte(offset & 0xff);
@@ -48,52 +101,102 @@ static void emitReturn() {
     emitByte(OP_RETURN);
 }
 
+static uint8_t makeConstant(Value value) {
+    int constant = addConstant(currentChunk(), value);
+    if (constant > UINT8_MAX) {
+        error("Too many constants in one chunk.");
+        return 0;
+    }
+
+    return (uint8_t)constant;
+}
+
 static void emitConstant(Value value) {
-    // emitBytes(OP_CONSTANT, makeConstant(value));
+    emitBytes(OP_CONSTANT, makeConstant(value));
+}
+
+static void initCompiler(Compiler* compiler, FunctionType type) {
+    compiler->enclosing = current;
+    compiler->function = NULL;
+    compiler->type = type;
+    compiler->localCount = 0;
+    compiler->scopeDepth = 0;
+    compiler->function = newFunction();
+    current = compiler;
+
+    // The compiler claims stack slot zero for the VM's own internal use
+    Local* local = &current->locals[current->localCount++];
+    local->depth = 0;
+    local->isCaptured = false;
+    if (type != TYPE_FUNCTION) {
+        local->name.start = "this";
+        local->name.length = 4;
+    } else {
+        local->name.start = "";
+        local->name.length = 0;
+    }
+}
+
+static ObjFunction* endCompiler() {
+    emitReturn();
+    ObjFunction* function = current->function;
+    return function;
+}
+
+static void emitBinary(ASTNode* node) {
+    switch (node->as.binary.operator) {
+        case TOKEN_PLUS: emitByte(OP_ADD); break;
+        case TOKEN_MINUS: emitByte(OP_SUBTRACT); break;
+        case TOKEN_STAR: emitByte(OP_MULTIPLY); break;
+        case TOKEN_SLASH: emitByte(OP_DIVIDE); break;
+        case TOKEN_BANG_EQUAL: emitBytes(OP_EQUAL, OP_NOT); break;
+        case TOKEN_EQUAL_EQUAL: emitByte(OP_EQUAL); break;
+        case TOKEN_GREATER: emitByte(OP_GREATER); break;
+        case TOKEN_GREATER_EQUAL: emitBytes(OP_LESS, OP_NOT); break;
+        case TOKEN_LESS: emitByte(OP_LESS); break;
+        case TOKEN_LESS_EQUAL: emitBytes(OP_GREATER, OP_NOT); break;
+        default:
+            return; // Unreachable.
+    };
 }
 
 
-void emit_bytecode_from_ast(ASTNode* node) {
+void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
     if (node == NULL) return;
     
     switch (node->type) {
-        case NODE_BINARY:
-            emit_bytecode_from_ast(node->as.binary.left);
-            emit_bytecode_from_ast(node->as.binary.right);
-            switch (node->as.binary.operator) {
-                case TOKEN_PLUS: emitByte(OP_ADD); break;
-                case TOKEN_MINUS: emitByte(OP_SUBTRACT); break;
-                case TOKEN_STAR: emitByte(OP_MULTIPLY); break;
-                case TOKEN_SLASH: emitByte(OP_DIVIDE); break;
-                case TOKEN_BANG_EQUAL: emitBytes(OP_EQUAL, OP_NOT); break;
-                case TOKEN_EQUAL_EQUAL: emitByte(OP_EQUAL); break;
-                case TOKEN_GREATER: emitByte(OP_GREATER); break;
-                case TOKEN_GREATER_EQUAL: emitBytes(OP_LESS, OP_NOT); break;
-                case TOKEN_LESS: emitByte(OP_LESS); break;
-                case TOKEN_LESS_EQUAL: emitBytes(OP_GREATER, OP_NOT); break;
-                default:
-                    return; // Unreachable.
-            }
+        case NODE_BINARY: {
+            emit_bytecode_from_ast(node->as.binary.left, compiler);
+            emit_bytecode_from_ast(node->as.binary.right, compiler);
+            emitBinary(node);
             break;
-        case NODE_CALL:
-            emit_bytecode_from_ast(node->as.call.callee);
+        }
+        case NODE_CALL: {
+            print_ast_node(node->as.call.callee, 0);
+            printf("test ------- \n");
+            print_ast_node((ASTNode*)(node->as.call.arguments->values[0]), 0);
+            printf("test ------- \n");
+            emit_bytecode_from_ast(node->as.call.callee, compiler);
             for (int i = 0; i < node->as.call.arg_count; i++) {
-                emit_bytecode_from_ast(node->as.call.arguments[i]);
+                emit_bytecode_from_ast((ASTNode*)node->as.call.arguments->values[i], compiler);
             }
             emitBytes(OP_CALL, node->as.call.arg_count);
             break;
-        case NODE_GET_PROPERTY:
-            emit_bytecode_from_ast(node->as.get_property.object);
+        }
+        case NODE_GET_PROPERTY: {
+            emit_bytecode_from_ast(node->as.get_property.object, compiler);
             emitConstant(OBJ_VAL(copyString(node->as.get_property.name.start, node->as.get_property.name.length)));
             emitByte(OP_GET_PROPERTY);
             break;
-        case NODE_SET_PROPERTY:
-            emit_bytecode_from_ast(node->as.set_property.object);
+        }
+        case NODE_SET_PROPERTY: {
+            emit_bytecode_from_ast(node->as.set_property.object, compiler);
             emitConstant(OBJ_VAL(copyString(node->as.set_property.name.start, node->as.set_property.name.length)));
-            emit_bytecode_from_ast(node->as.set_property.value);
+            emit_bytecode_from_ast(node->as.set_property.value, compiler);
             emitByte(OP_SET_PROPERTY);
             break;
-        case NODE_LITERAL:
+        }
+        case NODE_LITERAL: {
             switch (node->as.literal.token_type) {
                 case TOKEN_FALSE: emitByte(OP_FALSE); break;
                 case TOKEN_NIL: emitByte(OP_NIL); break;
@@ -102,10 +205,27 @@ void emit_bytecode_from_ast(ASTNode* node) {
                     return; // Unreachable.
             }
             break;
-        case NODE_NUMBER:
+        }
+        case NODE_NUMBER: {
             emitConstant(NUMBER_VAL(node->as.number.value));
             break;
+        }
         default:
             return; // Unreachable.
     }
+    
+    return;
+}
+
+ObjFunction* compileASTToBytecode(ASTNode* node) {
+    if (node == NULL) return NULL;
+    
+    Compiler compiler;
+    initCompiler(&compiler, TYPE_SCRIPT);
+    
+    // Recursively emit bytecode for the AST
+    emit_bytecode_from_ast(node, &compiler);
+
+    // Create the ObjFunction and return it
+    return endCompiler();
 }

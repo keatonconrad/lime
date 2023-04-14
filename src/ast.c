@@ -4,6 +4,7 @@
 #include "list.h"
 #include "ast.h"
 #include "compiler.h"
+#include "memory.h"
 
 ASTNode* new_binary_node(TokenType operator, ASTNode* left, ASTNode* right) {
     ASTNode* node = malloc(sizeof(ASTNode));
@@ -14,12 +15,12 @@ ASTNode* new_binary_node(TokenType operator, ASTNode* left, ASTNode* right) {
     return node;
 }
 
-ASTNode* new_call_node(ASTNode* callee, ASTNode** arguments, int arg_count) {
+ASTNode* new_call_node(ASTNode* callee) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_CALL;
     node->as.call.callee = callee;
-    node->as.call.arguments = arguments;
-    node->as.call.arg_count = arg_count;
+    node->as.call.arguments = NULL;
+    node->as.call.arg_count = NULL;
     return node;
 }
 
@@ -40,13 +41,13 @@ ASTNode* new_set_property_node(ASTNode* object, Token name, ASTNode* value) {
     return node;
 }
 
-ASTNode* new_invoke_node(ASTNode* object, Token name, ASTNode** arguments, int arg_count) {
+ASTNode* new_invoke_node(ASTNode* object, Token name) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_INVOKE;
     node->as.invoke.object = object;
     node->as.invoke.name = name;
-    node->as.invoke.arguments = arguments;
-    node->as.invoke.arg_count = arg_count;
+    node->as.invoke.arguments = NULL;
+    node->as.invoke.arg_count = NULL;
     return node;
 }
 
@@ -167,11 +168,11 @@ ASTNode* new_string_node(char* value) {
     return node;
 }
 
-ASTNode* new_super_call_node(Token name, ASTNode** arguments) {
+ASTNode* new_super_call_node(Token name) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_SUPER_METHOD_CALL;
     node->as.superMethodCall.name = name;
-    node->as.superMethodCall.arguments = arguments;
+    node->as.superMethodCall.arguments = NULL;
     return node;
 }
 
@@ -293,8 +294,8 @@ void print_ast_node(ASTNode* node, int depth) {
         case NODE_CALL:
             printf("\n");
             print_ast_node(node->as.call.callee, depth + 1);
-            for (int i = 0; i < node->as.call.arg_count; i++) {
-                print_ast_node(node->as.call.arguments[i], depth + 1);
+            for (int i = 0; i < node->as.call.arguments->count; i++) {
+                print_ast_node((ASTNode*)node->as.call.arguments->values[i], depth + 1);
             }
             break;
         // Add more cases for other node types here

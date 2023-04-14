@@ -23,6 +23,7 @@
         "functional": "c",
         "iterator": "c",
         "memory": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "ios": "c"
     }
 }

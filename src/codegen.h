@@ -3,4 +3,9 @@
 
 #include <stdbool.h>
 
+#include "ast.h"
+#include "object.h"
+
+ObjFunction* compileASTToBytecode(ASTNode* node);
+
 #endif

@@ -250,6 +250,7 @@ static void initCompiler(Compiler* compiler, FunctionType type) {
 static ObjFunction* endCompiler() {
     emitReturn();
     ObjFunction* function = current->function;
+    return function;
 
 #ifdef DEBUG_PRINT_CODE
     if (!parser.hadError) {
@@ -304,7 +305,7 @@ static ASTNode* binary(bool canAssign) {
 }
 
 
-static uint8_t parseArgumentList(ASTNode** arguments) {
+static uint8_t parseArgumentList(ASTNode* callNode, List arguments) {
     uint8_t argCount = 0;
     if (!check(TOKEN_RIGHT_PAREN)) {
         do {
@@ -312,8 +313,8 @@ static uint8_t parseArgumentList(ASTNode** arguments) {
                 error("Can't have more than 255 arguments.");
                 break;
             }
-            ASTNode* argument = expression();
-            arguments[argCount++] = argument;
+            ASTNode* argumentNode = expression();
+            writeList(callNode->as.call.arguments, argumentNode);
         } while (match(TOKEN_COMMA));
     }
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
@@ -322,14 +323,12 @@ static uint8_t parseArgumentList(ASTNode** arguments) {
 
 static ASTNode* call(bool canAssign) {
     ASTNode* callee = expression();
-    ASTNode* arguments[255]; // Maximum number of arguments is 255
-    uint8_t argCount = parseArgumentList(arguments);
+    ASTNode* callNode = new_call_node(callee);
+    List arguments;
+    initList(&arguments);
+    uint8_t argCount = parseArgumentList(callNode, arguments);
 
-    // Allocate memory for arguments and copy them
-    ASTNode** argumentArray = malloc(sizeof(ASTNode*) * argCount);
-    memcpy(argumentArray, arguments, sizeof(ASTNode*) * argCount);
-
-    return new_call_node(callee, argumentArray, argCount);
+    return callNode;
 }
 
 static ASTNode* dot(bool canAssign) {
@@ -338,19 +337,13 @@ static ASTNode* dot(bool canAssign) {
     ASTNode* object;
     ASTNode* value;
     NodeType nodeType;
-    ASTNode** argumentArray;
+    List arguments;
     uint8_t argCount = 0;
 
     if (canAssign && match(TOKEN_EQUAL)) {
         value = expression();
         nodeType = NODE_SET_PROPERTY;
     } else if (match(TOKEN_LEFT_PAREN)) {
-        ASTNode* arguments[255]; // Maximum number of arguments is 255
-        uint8_t argCount = parseArgumentList(arguments);
-
-        // Allocate memory for arguments and copy them
-        argumentArray = malloc(sizeof(ASTNode*) * argCount);
-        memcpy(argumentArray, arguments, sizeof(ASTNode*) * argCount);
         nodeType = NODE_INVOKE;
     } else {
         nodeType = NODE_GET_PROPERTY;
@@ -364,7 +357,7 @@ static ASTNode* dot(bool canAssign) {
             break;
         }
         case NODE_INVOKE: {
-            node = new_invoke_node(object, name, argumentArray, argCount);
+            node = new_invoke_node(object, name);
             break;
         }
         case NODE_GET_PROPERTY: {
@@ -372,6 +365,10 @@ static ASTNode* dot(bool canAssign) {
             break;
         }
         default: break; // Unreachable
+    }
+
+    if (nodeType == NODE_INVOKE) {
+        argCount = parseArgumentList(node, arguments);
     }
 
     return node;
@@ -501,15 +498,16 @@ static ASTNode* super_(bool canAssign) {
     Token name = parser.previous;
     // Generates code to look up the current receiver stored in "this" and push it onto the stack
     ASTNode* thisNamedVariable = namedVariable(syntheticToken("this"), false);
-    if (match(TOKEN_LEFT_PAREN)) {
-        ASTNode* arguments[255]; // Maximum number of arguments is 255
-        uint8_t argCount = parseArgumentList(arguments);
 
-        // Allocate memory for arguments and copy them
-        ASTNode** argumentArray = malloc(sizeof(ASTNode*) * argCount);
-        memcpy(argumentArray, arguments, sizeof(ASTNode*) * argCount);
+    List arguments;
+
+    if (match(TOKEN_LEFT_PAREN)) {
+        ASTNode* superCallNode = new_super_call_node(name);
+        initList(&arguments);
+        uint8_t argCount = parseArgumentList(superCallNode, arguments);
+
         ASTNode* superNamedVariable = namedVariable(syntheticToken("super"), false);
-        return new_super_call_node(name, arguments);
+        return superCallNode;
     } else {
         // Generates code to look up the superclass from "super" and push it onto the stack
         ASTNode* superNamedVariable = namedVariable(syntheticToken("super"), false);
@@ -1044,7 +1042,7 @@ static ASTNode* statement() {
     }
 }
 
-ObjFunction* compile(const char* source) {
+ASTNode* compile(const char* source) {
     initScanner(source);
     initLoopMetadata();
     Compiler compiler;
@@ -1061,8 +1059,8 @@ ObjFunction* compile(const char* source) {
     }
     print_ast(node);
 
-    ObjFunction* function = endCompiler();
-    return parser.hadError ? NULL : function;
+    // ObjFunction* function = endCompiler();
+    return parser.hadError ? NULL : node;
 }
 
 void markCompilerRoots() {
