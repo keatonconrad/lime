@@ -372,24 +372,11 @@ static void number(bool canAssign) {
 }
 
 static void or_(bool canAssign) {
-    // TODO: Refactor with an OP_JUMP_IF_TRUE instruction
-    int elseJump = emitJump(OP_JUMP_IF_FALSE);
-    int endJump = emitJump(OP_JUMP);
-
-    patchJump(elseJump);
-    emitByte(OP_POP);
-
-    parsePrecedence(PREC_OR);
-    patchJump(endJump);
-
-
-    /*
     int trueJump = emitJump(OP_JUMP_IF_TRUE);
     emitByte(OP_POP);
 
     parsePrecedence(PREC_OR);
     patchJump(trueJump);
-    */
 }
 
 static void string(bool canAssign) {

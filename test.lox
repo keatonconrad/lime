@@ -1,9 +1,2 @@
-print("1. this is my test\\nhere");
-print("2. this is my test\nhere");
-print("3. this is my test\there");
-print("4. this is my test\fhere");
-print("5. this is my test\rhere");
-print("6. this is my test\bhere");
-print("7. this is my test\\here");
-print("8. this is my test\'here");
-print("9. this is my test\here");
+print(false or true);
+print(true or false);
