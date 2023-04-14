@@ -114,7 +114,6 @@ static void errorAtCurrent(const char* message) {
 
 static void advance() {
     parser.previous = parser.current;
-    printf("Hi");
 
     for (;;) {
         parser.current = scanToken();
@@ -288,7 +287,6 @@ static ASTNode* expression();
 static ASTNode* statement();
 static ASTNode* declaration();
 static ASTNode* and_(bool canAssign);
-static uint8_t identifierConstant(Token* name);
 static int resolveLocal(Compiler* compiler, Token* name);
 static int resolveUpvalue(Compiler* compiler, Token* name);
 static ParseRule* getRule(TokenType type);
@@ -336,7 +334,7 @@ static ASTNode* call(bool canAssign) {
 
 static ASTNode* dot(bool canAssign) {
     consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
-    uint8_t name = identifierConstant(&parser.previous);
+    Token name = parser.previous;
     ASTNode* object;
     ASTNode* value;
     NodeType nodeType;
@@ -466,7 +464,6 @@ static ASTNode* namedVariable(Token name, bool canAssign) {
     } else if ((arg = resolveUpvalue(current, &name)) != -1) {
         accessType = ACCESS_UPVALUE;
     } else {
-        arg = identifierConstant(&name);
         accessType = ACCESS_GLOBAL;
     }
 
@@ -480,6 +477,7 @@ static ASTNode* namedVariable(Token name, bool canAssign) {
 
 
 static ASTNode* variable(bool canAssign) {
+    printf("got here");
     return namedVariable(parser.previous, canAssign);
 }
 
@@ -502,7 +500,7 @@ static ASTNode* super_(bool canAssign) {
     consume(TOKEN_IDENTIFIER, "Expect superclass method name.");
     Token name = parser.previous;
     // Generates code to look up the current receiver stored in "this" and push it onto the stack
-    namedVariable(syntheticToken("this"), false);
+    ASTNode* thisNamedVariable = namedVariable(syntheticToken("this"), false);
     if (match(TOKEN_LEFT_PAREN)) {
         ASTNode* arguments[255]; // Maximum number of arguments is 255
         uint8_t argCount = parseArgumentList(arguments);
@@ -510,11 +508,11 @@ static ASTNode* super_(bool canAssign) {
         // Allocate memory for arguments and copy them
         ASTNode** argumentArray = malloc(sizeof(ASTNode*) * argCount);
         memcpy(argumentArray, arguments, sizeof(ASTNode*) * argCount);
-        namedVariable(syntheticToken("super"), false);
+        ASTNode* superNamedVariable = namedVariable(syntheticToken("super"), false);
         return new_super_call_node(name, arguments);
     } else {
         // Generates code to look up the superclass from "super" and push it onto the stack
-        namedVariable(syntheticToken("super"), false);
+        ASTNode* superNamedVariable = namedVariable(syntheticToken("super"), false);
         return new_super_property_access_node(name);
     }
 }
@@ -588,6 +586,7 @@ static ASTNode* parsePrecedence(Precedence precedence) {
     ParseFn prefixRule = getRule(parser.previous.type)->prefix;
     if (prefixRule == NULL) {
         error("Expect expression.");
+        return NULL;
     }
 
     // variable() should look for and consume the = only if it's in
@@ -605,10 +604,6 @@ static ASTNode* parsePrecedence(Precedence precedence) {
         }
     }
     return leftNode;
-}
-
-static uint8_t identifierConstant(Token* name) {
-    return makeConstant(OBJ_VAL(copyString(name->start, name->length)));
 }
 
 static bool identifiersEqual(Token* a, Token* b) {
@@ -634,17 +629,20 @@ static int resolveLocal(Compiler* compiler, Token* name) {
     return -1;
 }
 
-static void addLocal(Token name) {
+static ASTNode* addLocal(Token nameToken) {
     if (current->localCount == UINT8_COUNT) {
         error("Too many local variables in function.");
-        return;
+        return NULL;
     }
 
     Local* local = &current->locals[current->localCount++];
-    local->name = name;
+    local->name = nameToken;
     local->depth = -1; // Marks it as uninitialized
     local->isCaptured = false;
+
+    return (ASTNode*)local;
 }
+
 
 static int addUpvalue(Compiler* compiler, uint8_t index, bool isLocal) {
     int upvalueCount = compiler->function->upvalueCount;
@@ -687,8 +685,10 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 }
 
 // Adds a local variable to the scope
-static void declareVariable() {
-    if (current->scopeDepth == 0) return;
+static ASTNode* declareVariable() {
+    printf("got here");
+    // if (current->scopeDepth == 0) return NULL;
+    printf("not here");
 
     Token* name = &parser.previous;
     for (int i = current->localCount - 1; i >= 0; i--) {
@@ -704,40 +704,23 @@ static void declareVariable() {
             error("Already a variable with this name in this scope.");
         }
     }
-    addLocal(*name);
+    printf("declareVariable");
+    return addLocal(*name);
 }
 
 // Consumes the identifier token for the variable name, adds its lexeme
 // to the chunk's constant table as a string, and then returns the constant
 // table index where it was added
-static uint8_t parseVariable(const char* errorMessage) {
+static Token* parseVariable(const char* errorMessage) {
     consume(TOKEN_IDENTIFIER, errorMessage);
+    printf("parseVariable");
 
-    declareVariable();
+    ASTNode* variable = declareVariable();
     // If we're in a local scope, exit the function by returning a
     // dummy index. Locals aren't looked up by name at runtime
     if (current->scopeDepth > 0) return 0;
 
-    return identifierConstant(&parser.previous);
-}
-
-static void markInitialized() {
-    if (current->scopeDepth == 0) return;
-    current->locals[current->localCount - 1].depth = current->scopeDepth;
-}
-
-// Emits the bytecode for storing the variable's value in the global variable
-// hash table, based on the index of its name in the constant table
-static void defineVariable(uint8_t global) {
-    if (current->scopeDepth > 0) {
-        // If we're in a local scope, the temporary value *becomes* the
-        // local variable, since the variable's initializer has already
-        // been evaluated and is sitting at the top of the stack
-        markInitialized();
-        return;
-    }
-
-    emitBytes(OP_DEFINE_GLOBAL, global);
+    return &parser.previous;
 }
 
 static ASTNode* and_(bool canAssign) {
@@ -776,8 +759,8 @@ static ASTNode* function(FunctionType type) {
             if (current->function->arity > 255) {
                 errorAtCurrent("Can't have more than 255 parameters.");
             }
-            uint8_t constant = parseVariable("Expect parameter name.");
-            defineVariable(constant);
+            Token* constant = parseVariable("Expect parameter name.");
+            // defineVariable(constant);
         } while (match(TOKEN_COMMA));
     }
 
@@ -795,7 +778,6 @@ static ASTNode* function(FunctionType type) {
 
 static ASTNode* method() {
     consume(TOKEN_IDENTIFIER, "Expect method name.");
-    uint8_t constant = identifierConstant(&parser.previous);
 
     FunctionType type = TYPE_METHOD;
     if (parser.previous.length == 4 && memcmp(parser.previous.start, "init", 4) == 0) {
@@ -808,11 +790,7 @@ static ASTNode* method() {
 static ASTNode* classDeclaration() {
     consume(TOKEN_IDENTIFIER, "Expect class name.");
     Token className = parser.previous;
-    uint8_t nameConstant = identifierConstant(&parser.previous);
     declareVariable();
-
-    emitBytes(OP_CLASS, nameConstant);
-    defineVariable(nameConstant);
 
     ClassCompiler classCompiler;
     classCompiler.hasSuperclass = false;
@@ -830,15 +808,14 @@ static ASTNode* classDeclaration() {
         }
 
         beginScope();
-        addLocal(syntheticToken("super"));
-        defineVariable(0);
+        ASTNode* localSuper = addLocal(syntheticToken("super"));
+        // defineVariable(0);
 
-        namedVariable(className, false); // Loads the subclass onto the stack
-        emitByte(OP_INHERIT);
+        ASTNode* classNamedVariable = namedVariable(className, false); // Loads the subclass onto the stack
         classCompiler.hasSuperclass = true;
     }
 
-    namedVariable(className, false);
+    ASTNode* classNamedVariable2 = namedVariable(className, false);
     consume(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
 
     List methods;
@@ -849,7 +826,6 @@ static ASTNode* classDeclaration() {
     }
 
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
-    emitByte(OP_POP);
 
     if (classCompiler.hasSuperclass) {
         endScope();
@@ -860,15 +836,14 @@ static ASTNode* classDeclaration() {
 }
 
 static ASTNode* funDeclaration() {
-    uint8_t global = parseVariable("Expect function name.");
-    markInitialized();
+    Token* global = parseVariable("Expect function name.");
     ASTNode* node = function(TYPE_FUNCTION);
-    defineVariable(global);
+    // defineVariable(global);
     return node;
 }
 
 static ASTNode* varDeclaration() {
-    uint8_t global = parseVariable("Expect variable name.");
+    Token* global = parseVariable("Expect variable name.");
 
     ASTNode* node = NULL;
     if (match(TOKEN_EQUAL)) {
@@ -877,12 +852,12 @@ static ASTNode* varDeclaration() {
         node = new_literal_node(TOKEN_NIL);
     }
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
-    defineVariable(global);
+    // defineVariable(global);
     return node;
 }
 
 static ASTNode* expressionStatement() {
-    printf("maybe?");
+    printf("expressionStatement\n");
     ASTNode* node = expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
     return node;
@@ -1084,6 +1059,7 @@ ObjFunction* compile(const char* source) {
     while (!match(TOKEN_EOF)) {
         node = declaration();
     }
+    print_ast(node);
 
     ObjFunction* function = endCompiler();
     return parser.hadError ? NULL : function;

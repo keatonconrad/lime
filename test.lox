@@ -1,1 +1,1 @@
-print(3);
+var test = 3;

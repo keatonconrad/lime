@@ -24,7 +24,6 @@ typedef enum {
     NODE_ASSIGNMENT,
     NODE_EXPRESSION_STATEMENT,
     NODE_IF_STATEMENT,
-    NODE_VAR_DECLARATION,
     NODE_WHILE_STATEMENT,
     NODE_FOR_STATEMENT,
     NODE_FUNCTION,
@@ -46,7 +45,6 @@ typedef struct {
     bool hasSuperclass;
     List methods; // List of ASTNode*, each representing a method
 } ClassDeclarationNodeData;
-
 
 typedef enum {
     ACCESS_LOCAL,
@@ -76,14 +74,17 @@ typedef struct {
     Token name;
 } SuperPropertyAccessNodeData;
 
+typedef struct {
+    ASTNode* left;
+    ASTNode* right;
+    TokenType operator;
+} BinaryNodeData;
+
 struct ASTNode {
     NodeType type;
     union {
-        struct {
-            ASTNode* left;
-            ASTNode* right;
-            TokenType operator;
-        } binary;
+        BinaryNodeData binary;
+        BinaryNodeData logical;
         struct {
             ASTNode* callee;
             ASTNode** arguments;
@@ -101,36 +102,22 @@ struct ASTNode {
         } unary;
         struct {
             ASTNode* object;
-            uint8_t name;
+            Token name;
         } get_property;
         struct {
             ASTNode* object;
-            uint8_t name;
+            Token name;
             ASTNode* value;
         } set_property;
         struct {
             ASTNode* object;
-            uint8_t name;
+            Token name;
             ASTNode** arguments;
             int arg_count;
         } invoke;
         struct {
-            ASTNode* left;
-            ASTNode* right;
-            TokenType operator;
-        } logical;
-        struct {
             ASTNode* expression;
         } grouping;
-        struct {
-            bool is_local;
-            int index;
-        } variable;
-        struct {
-            ASTNode* value;
-            bool is_local;
-            int index;
-        } assignment;
         struct {
             ASTNode* expression;
         } expression_statement;
@@ -139,10 +126,6 @@ struct ASTNode {
             ASTNode* then_branch;
             ASTNode* else_branch;
         } if_statement;
-        struct {
-            ASTNode* initializer;
-            uint8_t name;
-        } var_declaration;
         struct {
             ASTNode* condition;
             ASTNode* body;
@@ -184,9 +167,9 @@ struct ASTNode {
 // Functions to create ASTNode instances
 ASTNode* new_binary_node(TokenType operator, ASTNode* left, ASTNode* right);
 ASTNode* new_call_node(ASTNode* callee, ASTNode** arguments, int arg_count);
-ASTNode* new_get_property_node(ASTNode* object, uint8_t name);
-ASTNode* new_set_property_node(ASTNode* object, uint8_t name, ASTNode* value);
-ASTNode* new_invoke_node(ASTNode* object, uint8_t name, ASTNode** arguments, int arg_count);
+ASTNode* new_get_property_node(ASTNode* object, Token name);
+ASTNode* new_set_property_node(ASTNode* object, Token name, ASTNode* value);
+ASTNode* new_invoke_node(ASTNode* object, Token name, ASTNode** arguments, int arg_count);
 ASTNode* new_literal_node(TokenType token_type);
 ASTNode* new_number_node(double value);
 ASTNode* new_unary_node(TokenType operator, ASTNode* operand);
@@ -207,6 +190,8 @@ ASTNode* new_continue_statement_node(int offset);
 ASTNode* new_break_statement_node();
 ASTNode* new_variable_assignment_node(Token name, VariableAccessType accessType, int arg, ASTNode* value);
 ASTNode* new_variable_access_node(Token name, VariableAccessType accessType, int arg);
+void print_ast_node(ASTNode* node, int depth);
+void print_ast(ASTNode* root);
 
 
 

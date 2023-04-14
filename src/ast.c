@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "list.h"
 #include "ast.h"
@@ -22,7 +23,7 @@ ASTNode* new_call_node(ASTNode* callee, ASTNode** arguments, int arg_count) {
     return node;
 }
 
-ASTNode* new_get_property_node(ASTNode* object, uint8_t name) {
+ASTNode* new_get_property_node(ASTNode* object, Token name) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_GET_PROPERTY;
     node->as.get_property.object = object;
@@ -30,7 +31,7 @@ ASTNode* new_get_property_node(ASTNode* object, uint8_t name) {
     return node;
 }
 
-ASTNode* new_set_property_node(ASTNode* object, uint8_t name, ASTNode* value) {
+ASTNode* new_set_property_node(ASTNode* object, Token name, ASTNode* value) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_SET_PROPERTY;
     node->as.set_property.object = object;
@@ -39,7 +40,7 @@ ASTNode* new_set_property_node(ASTNode* object, uint8_t name, ASTNode* value) {
     return node;
 }
 
-ASTNode* new_invoke_node(ASTNode* object, uint8_t name, ASTNode** arguments, int arg_count) {
+ASTNode* new_invoke_node(ASTNode* object, Token name, ASTNode** arguments, int arg_count) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_INVOKE;
     node->as.invoke.object = object;
@@ -195,12 +196,16 @@ ASTNode* new_break_statement_node() {
 }
 
 ASTNode* new_variable_assignment_node(Token name, VariableAccessType accessType, int arg, ASTNode* value) {
+    printf("??? ------\n");
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     node->type = NODE_VARIABLE_ASSIGNMENT;
+    printf("wtf ------\n");
+    print_ast_node(node, 0);
     node->as.variableAssignment.name = name;
     node->as.variableAssignment.accessType = accessType;
     node->as.variableAssignment.arg = arg;
     node->as.variableAssignment.value = value;
+    
     return node;
 }
 
@@ -211,4 +216,95 @@ ASTNode* new_variable_access_node(Token name, VariableAccessType accessType, int
     node->as.variableAccess.accessType = accessType;
     node->as.variableAccess.arg = arg;
     return node;
+}
+
+const char* const token_type_to_string[] = {
+  // Single-character tokens.
+  "TOKEN_LEFT_PAREN", "TOKEN_RIGHT_PAREN",
+  "TOKEN_LEFT_BRACE", "TOKEN_RIGHT_BRACE",
+  "TOKEN_COMMA", "TOKEN_DOT", "TOKEN_MINUS", "TOKEN_PLUS",
+  "TOKEN_SEMICOLON", "TOKEN_SLASH", "TOKEN_STAR",
+  // One or two character tokens.
+  "TOKEN_BANG", "TOKEN_BANG_EQUAL",
+  "TOKEN_EQUAL", "TOKEN_EQUAL_EQUAL",
+  "TOKEN_GREATER", "TOKEN_GREATER_EQUAL",
+  "TOKEN_LESS", "TOKEN_LESS_EQUAL",
+  // Literals.
+  "TOKEN_IDENTIFIER", "TOKEN_STRING", "TOKEN_NUMBER",
+  // Keywords.
+  "TOKEN_AND", "TOKEN_CLASS", "TOKEN_ELSE", "TOKEN_FALSE",
+  "TOKEN_FOR", "TOKEN_FUN", "TOKEN_IF", "TOKEN_NIL", "TOKEN_OR",
+  "TOKEN_RETURN", "TOKEN_SUPER", "TOKEN_THIS",
+  "TOKEN_TRUE", "TOKEN_VAR", "TOKEN_WHILE", "TOKEN_BREAK",
+  "TOKEN_CONTINUE",
+
+  "TOKEN_ERROR", "TOKEN_EOF"
+};
+
+const char* const node_type_to_string[] = {
+    "NODE_BINARY",
+    "NODE_CALL",
+    "NODE_GET_PROPERTY",
+    "NODE_SET_PROPERTY",
+    "NODE_INVOKE",
+    "NODE_LITERAL",
+    "NODE_NUMBER",
+    "NODE_UNARY",
+    "NODE_LOGICAL",
+    "NODE_GROUPING",
+    "NODE_VARIABLE",
+    "NODE_ASSIGNMENT",
+    "NODE_EXPRESSION_STATEMENT",
+    "NODE_IF_STATEMENT",
+    "NODE_WHILE_STATEMENT",
+    "NODE_FOR_STATEMENT",
+    "NODE_FUNCTION",
+    "NODE_RETURN_STATEMENT",
+    "NODE_CLASS_DECLARATION",
+    "NODE_BLOCK",
+    "NODE_SUPER_PROPERTY_ACCESS",
+    "NODE_SUPER_METHOD_CALL",
+    "NODE_STRING",
+    "NODE_CONTINUE_STATEMENT",
+    "NODE_BREAK_STATEMENT",
+    "NODE_VARIABLE_ASSIGNMENT",
+    "NODE_VARIABLE_ACCESS",
+};
+
+// Helper function to print indentation
+static void print_indent(int depth) {
+    for (int i = 0; i < depth; i++) {
+        printf("  ");
+    }
+}
+
+
+void print_ast_node(ASTNode* node, int depth) {
+    if (!node) return;
+    print_indent(depth);
+    printf("%s", node_type_to_string[node->type]);
+
+    switch (node->type) {
+        case NODE_BINARY:
+            printf(" (operator: %s)\n", token_type_to_string[node->as.binary.operator]);
+            print_ast_node(node->as.binary.left, depth + 1);
+            print_ast_node(node->as.binary.right, depth + 1);
+            break;
+        case NODE_CALL:
+            printf("\n");
+            print_ast_node(node->as.call.callee, depth + 1);
+            for (int i = 0; i < node->as.call.arg_count; i++) {
+                print_ast_node(node->as.call.arguments[i], depth + 1);
+            }
+            break;
+        // Add more cases for other node types here
+        // ...
+        default:
+            printf("\n");
+            break;
+    }
+}
+
+void print_ast(ASTNode* root) {
+    print_ast_node(root, 0);
 }

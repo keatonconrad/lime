@@ -84,12 +84,12 @@ void emit_bytecode_from_ast(ASTNode* node) {
             break;
         case NODE_GET_PROPERTY:
             emit_bytecode_from_ast(node->as.get_property.object);
-            emitConstant(OBJ_VAL(copyString(AS_CSTRING(node->as.get_property.name), 3)));
+            emitConstant(OBJ_VAL(copyString(node->as.get_property.name.start, node->as.get_property.name.length)));
             emitByte(OP_GET_PROPERTY);
             break;
         case NODE_SET_PROPERTY:
             emit_bytecode_from_ast(node->as.set_property.object);
-            emitConstant(OBJ_VAL(copyString(AS_CSTRING(node->as.set_property.name), 4)));
+            emitConstant(OBJ_VAL(copyString(node->as.set_property.name.start, node->as.set_property.name.length)));
             emit_bytecode_from_ast(node->as.set_property.value);
             emitByte(OP_SET_PROPERTY);
             break;
