@@ -166,11 +166,11 @@ ASTNode* new_string_node(char* value) {
     return node;
 }
 
-ASTNode* new_super_call_node(Token name, int argCount) {
+ASTNode* new_super_call_node(Token name, ASTNode** arguments) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_SUPER_METHOD_CALL;
     node->as.superMethodCall.name = name;
-    node->as.superMethodCall.argCount = argCount;
+    node->as.superMethodCall.arguments = arguments;
     return node;
 }
 

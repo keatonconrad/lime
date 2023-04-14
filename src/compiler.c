@@ -306,13 +306,16 @@ static ASTNode* binary(bool canAssign) {
 }
 
 
-static uint8_t argumentList() {
+static uint8_t parseArgumentList(ASTNode** arguments) {
     uint8_t argCount = 0;
     if (!check(TOKEN_RIGHT_PAREN)) {
         do {
-            expression();
-            if (argCount == 255) error("Can't have more than 255 arguments.");
-            argCount++;
+            if (argCount == 255) {
+                error("Can't have more than 255 arguments.");
+                break;
+            }
+            ASTNode* argument = expression();
+            arguments[argCount++] = argument;
         } while (match(TOKEN_COMMA));
     }
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
@@ -320,13 +323,15 @@ static uint8_t argumentList() {
 }
 
 static ASTNode* call(bool canAssign) {
-    uint8_t argCount = argumentList();
     ASTNode* callee = expression();
-    ASTNode** arguments = malloc(sizeof(ASTNode*) * argCount);
-    for (int i = 0; i < argCount; i++) {
-        arguments[i] = expression();
-    }
-    return new_call_node(callee, arguments, argCount);
+    ASTNode* arguments[255]; // Maximum number of arguments is 255
+    uint8_t argCount = parseArgumentList(arguments);
+
+    // Allocate memory for arguments and copy them
+    ASTNode** argumentArray = malloc(sizeof(ASTNode*) * argCount);
+    memcpy(argumentArray, arguments, sizeof(ASTNode*) * argCount);
+
+    return new_call_node(callee, argumentArray, argCount);
 }
 
 static ASTNode* dot(bool canAssign) {
@@ -335,18 +340,19 @@ static ASTNode* dot(bool canAssign) {
     ASTNode* object;
     ASTNode* value;
     NodeType nodeType;
-    ASTNode** arguments;
+    ASTNode** argumentArray;
     uint8_t argCount = 0;
 
     if (canAssign && match(TOKEN_EQUAL)) {
         value = expression();
         nodeType = NODE_SET_PROPERTY;
     } else if (match(TOKEN_LEFT_PAREN)) {
-        argCount = argumentList();
-        arguments = malloc(sizeof(ASTNode*) * argCount);
-        for (int i = 0; i < argCount; i++) {
-            arguments[i] = expression(); // Assuming the expressions were stored on a stack or similar data structure
-        }
+        ASTNode* arguments[255]; // Maximum number of arguments is 255
+        uint8_t argCount = parseArgumentList(arguments);
+
+        // Allocate memory for arguments and copy them
+        argumentArray = malloc(sizeof(ASTNode*) * argCount);
+        memcpy(argumentArray, arguments, sizeof(ASTNode*) * argCount);
         nodeType = NODE_INVOKE;
     } else {
         nodeType = NODE_GET_PROPERTY;
@@ -360,7 +366,7 @@ static ASTNode* dot(bool canAssign) {
             break;
         }
         case NODE_INVOKE: {
-            node = new_invoke_node(object, name, arguments, argCount);
+            node = new_invoke_node(object, name, argumentArray, argCount);
             break;
         }
         case NODE_GET_PROPERTY: {
@@ -498,9 +504,14 @@ static ASTNode* super_(bool canAssign) {
     // Generates code to look up the current receiver stored in "this" and push it onto the stack
     namedVariable(syntheticToken("this"), false);
     if (match(TOKEN_LEFT_PAREN)) {
-        uint8_t argCount = argumentList();
+        ASTNode* arguments[255]; // Maximum number of arguments is 255
+        uint8_t argCount = parseArgumentList(arguments);
+
+        // Allocate memory for arguments and copy them
+        ASTNode** argumentArray = malloc(sizeof(ASTNode*) * argCount);
+        memcpy(argumentArray, arguments, sizeof(ASTNode*) * argCount);
         namedVariable(syntheticToken("super"), false);
-        return new_super_call_node(name, argCount);
+        return new_super_call_node(name, arguments);
     } else {
         // Generates code to look up the superclass from "super" and push it onto the stack
         namedVariable(syntheticToken("super"), false);

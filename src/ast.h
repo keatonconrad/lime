@@ -69,7 +69,7 @@ typedef struct {
 
 typedef struct {
     Token name;
-    uint8_t argCount;
+    ASTNode** arguments;
 } SuperMethodCallNodeData;
 
 typedef struct {
@@ -201,7 +201,7 @@ ASTNode* new_return_statement_node(ASTNode* value);
 ASTNode* new_class_declaration_node(Token name, Token superclass, bool hasSuperclass, List methods);
 ASTNode* new_block_node();
 ASTNode* new_super_property_access_node(Token name);
-ASTNode* new_super_call_node(Token name, int argCount);
+ASTNode* new_super_call_node(Token name, ASTNode** arguments);
 ASTNode* new_string_node(char* string);
 ASTNode* new_continue_statement_node(int offset);
 ASTNode* new_break_statement_node();
