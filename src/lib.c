@@ -51,3 +51,20 @@ NativePack lenNative(int argCount, Value* args) {
 
     return pack;
 }
+
+NativePack printNative(int argCount, Value* args) {
+    initNativePack;
+
+    if (argCount == 0) {
+        runtimeError("Expected an argument.");
+        pack.hadError = true;
+    }
+
+    for (int i = 0; i < argCount; i++) {
+        if (IS_OBJ(args[i])) printObject(args[i]);
+        else printValue(args[0]);
+        printf(" ");
+    }
+    printf("\n");
+    return pack;
+}

@@ -17,5 +17,6 @@ typedef struct _NativePack {
 NativePack clockNative(int argCount, Value* args);
 NativePack assertNative(int argCount, Value* args);
 NativePack lenNative(int argCount, Value* args);
+NativePack printNative(int argCount, Value* args);
 
 #endif
