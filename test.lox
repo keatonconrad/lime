@@ -1,2 +1,7 @@
-print(false or true);
-print(true or false);
+class Doughnut {
+  init() {
+    this.type = "crueller";
+  }
+}
+garbage();
+print(Doughnut().type); // undefined
