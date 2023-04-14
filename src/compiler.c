@@ -392,13 +392,60 @@ static void or_(bool canAssign) {
     */
 }
 
-// Takes the string's characters directly from the lexeme,
-// trimming the leading and trailing quotation marks.
 static void string(bool canAssign) {
-    // TODO: Support escape sequences like \n
-    emitConstant(OBJ_VAL(copyString(parser.previous.start + 1,
-                                    parser.previous.length - 2)));
+    // Start at index 1 to skip the opening quotation mark.
+    int inputIndex = 1;
+    int outputIndex = 0;
+
+    // Allocate space for the processed string.
+    // The length is equal to the lexeme length minus the quotation marks.
+    int outputLength = parser.previous.length - 2;
+    char* processedString = (char*)malloc(outputLength + 1);  // +1 for null terminator
+
+    // Process the string, handling escape sequences.
+    while (inputIndex < parser.previous.length - 1) {  // Stop before the closing quotation mark
+        char current = parser.previous.start[inputIndex];
+        if (current == '\\') {  // Escape sequence
+            inputIndex++;  // Move to the next character after the backslash
+            char escaped = parser.previous.start[inputIndex];
+
+            switch (escaped) {
+                case 'n':
+                    processedString[outputIndex++] = '\n';
+                    break;
+                case 'r':
+                    processedString[outputIndex++] = '\r';
+                    break;
+                case 't':
+                    processedString[outputIndex++] = '\t';
+                    break;
+                case 'b':
+                    processedString[outputIndex++] = '\b';
+                    break;
+                case 'f':
+                    processedString[outputIndex++] = '\f';
+                    break;
+                default:
+                    // Copy the character after the backslash without processing
+                    processedString[outputIndex++] = '\\';
+                    processedString[outputIndex++] = escaped;
+            }
+        } else {
+            processedString[outputIndex++] = current;
+        }
+        inputIndex++;
+    }
+
+    // Add null terminator to the processed string
+    processedString[outputIndex] = '\0';
+
+    // Emit the constant with the processed string
+    emitConstant(OBJ_VAL(copyString(processedString, outputIndex)));
+
+    // Free the memory allocated for the processed string
+    free(processedString);
 }
+
 
 static void namedVariable(Token name, bool canAssign) {
     uint8_t getOp, setOp;
