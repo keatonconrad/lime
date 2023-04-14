@@ -174,7 +174,7 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
         case NODE_CALL: {
             print_ast_node(node->as.call.callee, 0);
             printf("printed callee node ------- \n");
-            // print_ast_node((ASTNode*)(node->as.call.arguments->values[0]), 0);
+            print_ast_node((ASTNode*)(node->as.call.arguments->values[0]), 0);
             printf("printed values ------- \n");
             emit_bytecode_from_ast(node->as.call.callee, compiler);
             printf("emitted callee node ------- \n");

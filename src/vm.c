@@ -616,7 +616,8 @@ InterpretResult interpret(const char* source) {
     if (rootNode == NULL) return INTERPRET_COMPILE_ERROR;
 
     // Print the AST
-    // print_ast(rootNode);
+    printf("finished compilation !!!!\n");
+    print_ast(rootNode);
 
     // Generate bytecode
     ObjFunction* function = compileASTToBytecode(rootNode);

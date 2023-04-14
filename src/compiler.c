@@ -858,7 +858,7 @@ static ASTNode* expressionStatement() {
     printf("expressionStatement\n");
     ASTNode* node = expression();
     printf("expressionStatement middle\n");
-    // print_ast_node(node, 0);
+    print_ast(node);
     consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
     printf("expressionStatement end\n");
     return node;
@@ -1060,7 +1060,7 @@ ASTNode* compile(const char* source) {
     while (!match(TOKEN_EOF)) {
         node = declaration();
     }
-    // print_ast(node);
+    print_ast(node);
 
     // ObjFunction* function = endCompiler();
     return parser.hadError ? NULL : node;
