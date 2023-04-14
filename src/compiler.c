@@ -321,16 +321,6 @@ static uint8_t parseArgumentList(ASTNode* callNode, List arguments) {
     return argCount;
 }
 
-static ASTNode* call(bool canAssign) {
-    ASTNode* callee = expression();
-    ASTNode* callNode = new_call_node(callee);
-    List arguments;
-    initList(&arguments);
-    uint8_t argCount = parseArgumentList(callNode, arguments);
-
-    return callNode;
-}
-
 static ASTNode* dot(bool canAssign) {
     consume(TOKEN_IDENTIFIER, "Expect property name after '.'.");
     Token name = parser.previous;
@@ -474,8 +464,20 @@ static ASTNode* namedVariable(Token name, bool canAssign) {
 
 
 static ASTNode* variable(bool canAssign) {
-    printf("got here");
     return namedVariable(parser.previous, canAssign);
+}
+
+static ASTNode* call(bool canAssign) {
+    printf("%s", parser.previous.start);
+    ASTNode* callee = variable(false);
+    printf("printing callee \n");
+    print_ast(callee);
+    ASTNode* callNode = new_call_node(callee);
+    List arguments;
+    initList(&arguments);
+    uint8_t argCount = parseArgumentList(callNode, arguments);
+
+    return callNode;
 }
 
 static Token syntheticToken(const char* text) {
@@ -596,6 +598,8 @@ static ASTNode* parsePrecedence(Precedence precedence) {
         advance();
         ParseFn infixRule = getRule(parser.previous.type)->infix;
         leftNode = infixRule(canAssign);
+        printf("leftnode\n");
+        print_ast(leftNode);
 
         if (canAssign && match(TOKEN_EQUAL)) {
             error("Invalid assignment target.");

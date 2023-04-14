@@ -112,14 +112,13 @@ void initVM() {
     vm.initString = NULL;
     vm.initString = copyString("init", 4);
     
-    /* defineNative("clock", clockNative);
+    defineNative("clock", clockNative);
     defineNative("assert", assertNative);
     defineNative("len", lenNative);
     defineNative("print", printNative);
 
     ObjInstance* instance = defineNativeInstance("time");
     defineNativeMethod(instance, "newClock", clockNative);
-    */
 }
 
 void freeVM() {

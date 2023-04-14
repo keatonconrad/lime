@@ -255,7 +255,6 @@ const char* const node_type_to_string[] = {
     "NODE_UNARY",
     "NODE_LOGICAL",
     "NODE_GROUPING",
-    "NODE_VARIABLE",
     "NODE_ASSIGNMENT",
     "NODE_EXPRESSION_STATEMENT",
     "NODE_IF_STATEMENT",
@@ -281,7 +280,6 @@ static void print_indent(int depth) {
     }
 }
 
-
 void print_ast_node(ASTNode* node, int depth) {
     if (!node) return;
     print_indent(depth);
@@ -295,9 +293,11 @@ void print_ast_node(ASTNode* node, int depth) {
             break;
         case NODE_CALL:
             printf("\n");
-            print_ast_node(node->as.call.callee, depth + 1);
+            printf("\tCallee: ");
+            print_ast_node(node->as.call.callee, depth);
             for (int i = 0; i < node->as.call.arguments->count; i++) {
-                print_ast_node((ASTNode*)node->as.call.arguments->values[i], depth + 1);
+                printf("\tArg %d: ", i);
+                print_ast_node((ASTNode*)node->as.call.arguments->values[i], depth);
             }
             break;
         case NODE_NUMBER:
@@ -305,6 +305,9 @@ void print_ast_node(ASTNode* node, int depth) {
             break;
         case NODE_STRING:
             printf(" (value: %s)\n", node->as.string.string);
+            break;
+        case NODE_VARIABLE_ACCESS:
+            printf(" (name: %s)\n", node->as.variableAccess.name.start);
             break;
         default:
             printf("\n");
