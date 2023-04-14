@@ -850,12 +850,6 @@ static void ifStatement() {
     patchJump(elseJump);
 }
 
-static void printStatement() {
-    expression();
-    consume(TOKEN_SEMICOLON, "Expect ';' after value.");
-    emitByte(OP_PRINT);
-}
-
 static void returnStatement() {
     if (current->type == TYPE_SCRIPT) {
         error("Can't return from top-level code.");
@@ -1016,9 +1010,7 @@ static void declaration() {
 }
 
 static void statement() {
-    if (match(TOKEN_PRINT)) {
-        printStatement();
-    } else if (match(TOKEN_IF)) {
+    if (match(TOKEN_IF)) {
         ifStatement();
     } else if (match(TOKEN_BREAK)) {
         breakStatement();
