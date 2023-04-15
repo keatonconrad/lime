@@ -11,5 +11,7 @@ typedef struct {
 
 void initList(List* array);
 void writeList(List* array, void* value);
+void* listGet(List* array, int index);
+void freeList(List* array);
 
 #endif

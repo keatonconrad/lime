@@ -27,3 +27,11 @@ void freeList(List* array) {
     FREE_ARRAY(void*, array->values, array->capacity);
     initList(array);
 }
+
+void* listGet(List* list, int index) {
+    if (index < 0 || index >= list->count) {
+        fprintf(stderr, "List index out of bounds: %d\n", index);
+        exit(1);
+    }
+    return list->values[index];
+}

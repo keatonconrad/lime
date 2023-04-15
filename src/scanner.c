@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "scanner.h"
+#include "list.h"
 
 typedef struct {
     const char* start; // Beginning of current lexeme being scanned
@@ -211,4 +212,61 @@ Token scanToken() {
     }
 
     return errorToken("Unexpected character.");
+}
+
+static const char* const type_to_string[] = {
+  // Single-character tokens.
+  "TOKEN_LEFT_PAREN", "TOKEN_RIGHT_PAREN",
+  "TOKEN_LEFT_BRACE", "TOKEN_RIGHT_BRACE",
+  "TOKEN_COMMA", "TOKEN_DOT", "TOKEN_MINUS", "TOKEN_PLUS",
+  "TOKEN_SEMICOLON", "TOKEN_SLASH", "TOKEN_STAR",
+  // One or two character tokens.
+  "TOKEN_BANG", "TOKEN_BANG_EQUAL",
+  "TOKEN_EQUAL", "TOKEN_EQUAL_EQUAL",
+  "TOKEN_GREATER", "TOKEN_GREATER_EQUAL",
+  "TOKEN_LESS", "TOKEN_LESS_EQUAL",
+  // Literals.
+  "TOKEN_IDENTIFIER", "TOKEN_STRING", "TOKEN_NUMBER",
+  // Keywords.
+  "TOKEN_AND", "TOKEN_CLASS", "TOKEN_ELSE", "TOKEN_FALSE",
+  "TOKEN_FOR", "TOKEN_FUN", "TOKEN_IF", "TOKEN_NIL", "TOKEN_OR",
+  "TOKEN_RETURN", "TOKEN_SUPER", "TOKEN_THIS",
+  "TOKEN_TRUE", "TOKEN_VAR", "TOKEN_WHILE", "TOKEN_BREAK",
+  "TOKEN_CONTINUE",
+
+  "TOKEN_ERROR", "TOKEN_EOF"
+};
+
+const char* const tokenTypeToString(TokenType type) {
+    size_t num_types = sizeof(type_to_string) / sizeof(type_to_string[0]);
+    if (type < 0 || type >= num_types) {
+        printf("Error: Invalid TokenType value: %d\n", type);
+        return "TOKEN_ERROR";
+    }
+    return type_to_string[type];
+}
+
+
+void scanTokens(const char* source, List* tokens) {
+    initScanner(source);
+
+    Token* token;
+    do {
+        token = (Token*)malloc(sizeof(Token));
+        if (token == NULL) {
+            fprintf(stderr, "Memory allocation failed\n");
+            exit(1);
+        }
+        *token = scanToken();
+        writeList(tokens, token);
+    } while (token->type != TOKEN_EOF);
+}
+
+
+void printTokens(List* tokens) {
+    printf("Token count: %d\n", tokens->count);
+    for (int i = 0; i < tokens->count; i++) {
+        Token* token = (Token*)listGet(tokens, i);
+        printf("%s, ", tokenTypeToString(token->type));
+    }
 }

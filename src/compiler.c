@@ -18,6 +18,8 @@ typedef struct {
     Token previous;
     bool hadError;
     bool panicMode;
+    List* tokens;
+    int tokenIndex;
 } Parser;
 
 typedef enum {
@@ -116,13 +118,13 @@ static void advance() {
     parser.previous = parser.current;
 
     for (;;) {
-        parser.current = scanToken();
+        Token* currentToken = (Token*)listGet(parser.tokens, parser.tokenIndex);
+        parser.current = *currentToken;
+        parser.tokenIndex++;
         if (parser.current.type != TOKEN_ERROR) break;
 
         errorAtCurrent(parser.current.start);
     }
-
-    printf("advanced\n");
 }
 
 static void consume(TokenType type, const char* message) {
@@ -375,6 +377,7 @@ static ASTNode* literal(bool canAssign) {
 }
 
 static ASTNode* grouping(bool canAssign) {
+    printf("grouping\n");
     ASTNode* node = expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
     return node;
@@ -468,7 +471,6 @@ static ASTNode* variable(bool canAssign) {
 }
 
 static ASTNode* call(bool canAssign) {
-    printf("%s", parser.previous.start);
     ASTNode* callee = variable(false);
     printf("printing callee \n");
     print_ast(callee);
@@ -688,11 +690,11 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 
 // Adds a local variable to the scope
 static ASTNode* declareVariable() {
-    printf("got here");
+    printf("declareVariable1\n");
     // if (current->scopeDepth == 0) return NULL;
-    printf("not here");
 
     Token* name = &parser.previous;
+    printf("%s\n", name->start);
     for (int i = current->localCount - 1; i >= 0; i--) {
         // When we declare a new variable, we start at the end and
         // work backward, looking for an existing variable with the
@@ -720,7 +722,7 @@ static Token* parseVariable(const char* errorMessage) {
     ASTNode* variable = declareVariable();
     // If we're in a local scope, exit the function by returning a
     // dummy index. Locals aren't looked up by name at runtime
-    if (current->scopeDepth > 0) return 0;
+    // if (current->scopeDepth > 0) return 0;
 
     return &parser.previous;
 }
@@ -792,6 +794,7 @@ static ASTNode* method() {
 static ASTNode* classDeclaration() {
     consume(TOKEN_IDENTIFIER, "Expect class name.");
     Token className = parser.previous;
+    printf("className: %s\n", parser.current.start);
     declareVariable();
 
     ClassCompiler classCompiler;
@@ -845,17 +848,19 @@ static ASTNode* funDeclaration() {
 }
 
 static ASTNode* varDeclaration() {
-    Token* global = parseVariable("Expect variable name.");
+    Token* variableName = parseVariable("Expect variable name.");
+    printf("varDeclaration\n");
 
-    ASTNode* node = NULL;
+    ASTNode* value = NULL;
     if (match(TOKEN_EQUAL)) {
-        node = expression();
+        value = expression();
     } else {
-        node = new_literal_node(TOKEN_NIL);
+        value = new_literal_node(TOKEN_NIL);
     }
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
+    ASTNode* result = new_variable_assignment_node(*variableName, (VariableAccessType)0, 0, value);
     // defineVariable(global);
-    return node;
+    return result;
 }
 
 static ASTNode* expressionStatement() {
@@ -1050,11 +1055,18 @@ static ASTNode* statement() {
 }
 
 ASTNode* compile(const char* source) {
-    initScanner(source);
+    List tokens;
+    initList(&tokens);
+    scanTokens(source, &tokens);
+    printf("Tokens:\n");
+    printTokens(&tokens);
+
     initLoopMetadata();
     Compiler compiler;
     initCompiler(&compiler, TYPE_SCRIPT);
 
+    parser.tokens = &tokens;
+    parser.tokenIndex = 0;
     parser.hadError = false;
     parser.panicMode = false;
     

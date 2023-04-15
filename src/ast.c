@@ -5,6 +5,7 @@
 #include "ast.h"
 #include "compiler.h"
 #include "memory.h"
+#include "scanner.h"
 
 ASTNode* new_binary_node(TokenType operator, ASTNode* left, ASTNode* right) {
     ASTNode* node = malloc(sizeof(ASTNode));
@@ -199,16 +200,13 @@ ASTNode* new_break_statement_node() {
 }
 
 ASTNode* new_variable_assignment_node(Token name, VariableAccessType accessType, int arg, ASTNode* value) {
-    printf("??? ------\n");
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     node->type = NODE_VARIABLE_ASSIGNMENT;
-    printf("wtf ------\n");
     print_ast_node(node, 0);
     node->as.variableAssignment.name = name;
     node->as.variableAssignment.accessType = accessType;
     node->as.variableAssignment.arg = arg;
     node->as.variableAssignment.value = value;
-    
     return node;
 }
 
@@ -220,29 +218,6 @@ ASTNode* new_variable_access_node(Token name, VariableAccessType accessType, int
     node->as.variableAccess.arg = arg;
     return node;
 }
-
-const char* const token_type_to_string[] = {
-  // Single-character tokens.
-  "TOKEN_LEFT_PAREN", "TOKEN_RIGHT_PAREN",
-  "TOKEN_LEFT_BRACE", "TOKEN_RIGHT_BRACE",
-  "TOKEN_COMMA", "TOKEN_DOT", "TOKEN_MINUS", "TOKEN_PLUS",
-  "TOKEN_SEMICOLON", "TOKEN_SLASH", "TOKEN_STAR",
-  // One or two character tokens.
-  "TOKEN_BANG", "TOKEN_BANG_EQUAL",
-  "TOKEN_EQUAL", "TOKEN_EQUAL_EQUAL",
-  "TOKEN_GREATER", "TOKEN_GREATER_EQUAL",
-  "TOKEN_LESS", "TOKEN_LESS_EQUAL",
-  // Literals.
-  "TOKEN_IDENTIFIER", "TOKEN_STRING", "TOKEN_NUMBER",
-  // Keywords.
-  "TOKEN_AND", "TOKEN_CLASS", "TOKEN_ELSE", "TOKEN_FALSE",
-  "TOKEN_FOR", "TOKEN_FUN", "TOKEN_IF", "TOKEN_NIL", "TOKEN_OR",
-  "TOKEN_RETURN", "TOKEN_SUPER", "TOKEN_THIS",
-  "TOKEN_TRUE", "TOKEN_VAR", "TOKEN_WHILE", "TOKEN_BREAK",
-  "TOKEN_CONTINUE",
-
-  "TOKEN_ERROR", "TOKEN_EOF"
-};
 
 const char* const node_type_to_string[] = {
     "NODE_BINARY",
@@ -287,7 +262,7 @@ void print_ast_node(ASTNode* node, int depth) {
 
     switch (node->type) {
         case NODE_BINARY:
-            printf(" (operator: %s)\n", token_type_to_string[node->as.binary.operator]);
+            printf(" (operator: %s)\n", tokenTypeToString(node->as.binary.operator));
             print_ast_node(node->as.binary.left, depth + 1);
             print_ast_node(node->as.binary.right, depth + 1);
             break;
@@ -308,6 +283,10 @@ void print_ast_node(ASTNode* node, int depth) {
             break;
         case NODE_VARIABLE_ACCESS:
             printf(" (name: %s)\n", node->as.variableAccess.name.start);
+            break;
+        case NODE_VARIABLE_ASSIGNMENT:
+            printf(" (name: %s)\n", node->as.variableAssignment.name.start);
+            print_ast_node(node->as.variableAssignment.value, depth + 1);
             break;
         default:
             printf("\n");
