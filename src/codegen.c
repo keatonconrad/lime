@@ -269,6 +269,23 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
             }
             break;
         }
+        case NODE_VARIABLE_ACCESS: {
+            switch (node->as.variableAccess.accessType) {
+                case ACCESS_LOCAL: {
+                    emitBytes(OP_GET_LOCAL, node->as.variableAccess.arg);
+                    break;
+                }
+                case ACCESS_GLOBAL: {
+                    emitBytes(OP_GET_GLOBAL, makeConstant(OBJ_VAL(copyString(node->as.variableAccess.name.start, node->as.variableAccess.name.length))));
+                    break;
+                }
+                case ACCESS_UPVALUE: {
+                    emitBytes(OP_GET_UPVALUE, node->as.variableAccess.arg);
+                    break;
+                }
+            }
+            break;
+        }
         default:
             return; // Unreachable.
     }

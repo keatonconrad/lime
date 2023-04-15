@@ -1,1 +1,1 @@
-var myvar = 3;
+print(3);

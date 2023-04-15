@@ -148,16 +148,12 @@ static void consume(TokenType type, const char* message) {
 
 // Checks that the current token's TokenType == type
 static bool check(TokenType type) {
-    printf("checking\n");
-    printf("current token: %s\n", tokenTypeToString(parser.current.type));
-    printf("type: %s\n", tokenTypeToString(type));
     return parser.current.type == type;
 }
 
 // If the current token has the given type, consume the token and return true
 static bool match(TokenType type) {
     if (!check(type)) return false;
-    printf("matching\n");
     advance();
     return true;
 }
@@ -380,6 +376,7 @@ static ASTNode* grouping(bool canAssign) {
 }
 
 static ASTNode* number(bool canAssign) {
+    printf("it's a number!\n");
     double value = strtod(parser.previous.start, NULL);
     return new_number_node(value);
 }
@@ -472,7 +469,8 @@ static ASTNode* variable(bool canAssign) {
 
 static ASTNode* call(bool canAssign) {
     printf("call called\n");
-    ASTNode* callee = variable(false);
+    Token calleeToken = *(Token*)listGet(parser.tokens, parser.tokenIndex - 3);
+    ASTNode* callee = new_variable_access_node(calleeToken, ACCESS_GLOBAL, -1);
     printf("printing callee \n");
     print_ast(callee);
     ASTNode* callNode = new_call_node(callee);
@@ -694,7 +692,7 @@ static int resolveUpvalue(Compiler* compiler, Token* name) {
 // Adds a local variable to the scope
 static ASTNode* declareVariable() {
     printf("declareVariable1\n");
-    // if (current->scopeDepth == 0) return NULL;
+    if (current->scopeDepth == 0) return NULL;
 
     Token* name = &parser.previous;
     printf("Variable name: ");
@@ -799,7 +797,9 @@ static ASTNode* method() {
 static ASTNode* classDeclaration() {
     consume(TOKEN_IDENTIFIER, "Expect class name.");
     Token className = parser.previous;
-    printf("className: %s\n", className.start);
+    printf("className: ");
+    printToken(&className);
+    printf("\n");
     declareVariable();
 
     ClassCompiler classCompiler;
@@ -872,7 +872,6 @@ static ASTNode* varDeclaration() {
 
 static ASTNode* expressionStatement() {
     ASTNode* node = expression();
-    print_ast(node);
     consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
     return node;
 }
