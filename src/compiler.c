@@ -56,12 +56,6 @@ typedef struct {
     bool isLocal; // Whether the closure captures a local variable or an upvalue from the surrounding function
 } Upvalue;
 
-typedef struct {
-	bool isInLoop;
-	int loopStart; // Stores current loop starting position to use with continue.
-	int jumpToExit; // Stores break statement JUMP to patch for exit. This allows only one break per loop
-} LoopMetadata;
-
 // Stores local variable state
 typedef struct _Compiler {
     struct _Compiler* enclosing;
@@ -79,6 +73,11 @@ typedef struct ClassCompiler {
     bool hasSuperclass;
 } ClassCompiler;
 
+typedef struct {
+	bool isInLoop;
+	int loopStart; // Stores current loop starting position to use with continue.
+	int jumpToExit; // Stores break statement JUMP to patch for exit. This allows only one break per loop
+} LoopMetadata;
 
 Parser parser;
 Compiler* current = NULL;
@@ -118,14 +117,20 @@ static void advance() {
     parser.previous = parser.current;
 
     for (;;) {
-        Token* currentToken = (Token*)listGet(parser.tokens, parser.tokenIndex);
-        parser.current = *currentToken;
+        Token* token = (Token*)listGet(parser.tokens, parser.tokenIndex);
+        parser.current = *token;
         parser.tokenIndex++;
+
+        // Debug prints
+        printf("Previous token: %s\n", tokenTypeToString(parser.previous.type));
+        printf("Current token: %s\n", tokenTypeToString(parser.current.type));
+
         if (parser.current.type != TOKEN_ERROR) break;
 
         errorAtCurrent(parser.current.start);
     }
 }
+ 
 
 static void consume(TokenType type, const char* message) {
     if (parser.current.type == type) {
@@ -196,24 +201,6 @@ static uint8_t makeConstant(Value value) {
     }
 
     return (uint8_t)constant;
-}
-
-static void emitConstant(Value value) {
-    emitBytes(OP_CONSTANT, makeConstant(value));
-}
-
-// Goes back into the bytecode and replaces the operand at the given
-// location with the calculated jump offset
-static void patchJump(int offset) {
-    // -2 to adjust for the bytecode for the jump offset itself
-    int jump = currentChunk()->count - offset - 2;
-
-    if (jump > UINT16_MAX) {
-        error("Too much code to jump over");
-    }
-
-    currentChunk()->code[offset] = (jump >> 8) & 0xff;
-    currentChunk()->code[offset + 1] = jump & 0xff;
 }
 
 static void initLoopMetadata() {
@@ -449,6 +436,10 @@ static ASTNode* string(bool canAssign) {
 static ASTNode* namedVariable(Token name, bool canAssign) {
     VariableAccessType accessType;
     int arg = resolveLocal(current, &name);
+    printf("Variable name: ");
+    printToken(&name);
+    printf("\n");
+
     if (arg != -1) {
         accessType = ACCESS_LOCAL;
     } else if ((arg = resolveUpvalue(current, &name)) != -1) {
@@ -471,6 +462,7 @@ static ASTNode* variable(bool canAssign) {
 }
 
 static ASTNode* call(bool canAssign) {
+    printf("call called\n");
     ASTNode* callee = variable(false);
     printf("printing callee \n");
     print_ast(callee);
@@ -794,7 +786,7 @@ static ASTNode* method() {
 static ASTNode* classDeclaration() {
     consume(TOKEN_IDENTIFIER, "Expect class name.");
     Token className = parser.previous;
-    printf("className: %s\n", parser.current.start);
+    printf("className: %s\n", className.start);
     declareVariable();
 
     ClassCompiler classCompiler;
@@ -864,12 +856,9 @@ static ASTNode* varDeclaration() {
 }
 
 static ASTNode* expressionStatement() {
-    printf("expressionStatement\n");
     ASTNode* node = expression();
-    printf("expressionStatement middle\n");
     print_ast(node);
     consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
-    printf("expressionStatement end\n");
     return node;
 }
 
@@ -933,12 +922,6 @@ static ASTNode* breakStatement() {
     return node;
 }
 
-static void handleLoopMetadata() {
-    if (loopMetadata.jumpToExit != -1) {
-        patchJump(loopMetadata.jumpToExit);
-    }
-    initLoopMetadata();
-}
 
 static ASTNode* forStatement() {
     ASTNode* forNode = malloc(sizeof(ASTNode));
@@ -1054,6 +1037,23 @@ static ASTNode* statement() {
     }
 }
 
+void initParser(List* tokens) {
+    parser.tokens = tokens;
+    parser.tokenIndex = 0;
+    parser.hadError = false;
+    parser.panicMode = false;
+
+    parser.previous.type = TOKEN_ERROR;
+    parser.previous.start = "";
+    parser.previous.length = 0;
+    parser.previous.line = 0;
+
+    parser.current.type = TOKEN_ERROR;
+    parser.current.start = "";
+    parser.current.length = 0;
+    parser.current.line = 0;
+}
+
 ASTNode* compile(const char* source) {
     List tokens;
     initList(&tokens);
@@ -1061,14 +1061,14 @@ ASTNode* compile(const char* source) {
     printf("Tokens:\n");
     printTokens(&tokens);
 
+    initParser(&tokens);
+
     initLoopMetadata();
     Compiler compiler;
     initCompiler(&compiler, TYPE_SCRIPT);
 
-    parser.tokens = &tokens;
-    parser.tokenIndex = 0;
-    parser.hadError = false;
-    parser.panicMode = false;
+    printf("\nfirst token: %s\n", tokenTypeToString((*(Token*)listGet(&tokens, 0)).type));
+    printf("first token2: %s\n", tokenTypeToString(parser.previous.type));
     
     advance();
     

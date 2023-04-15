@@ -282,10 +282,14 @@ void print_ast_node(ASTNode* node, int depth) {
             printf(" (value: %s)\n", node->as.string.string);
             break;
         case NODE_VARIABLE_ACCESS:
-            printf(" (name: %s)\n", node->as.variableAccess.name.start);
+            printf(" (name: ");
+            printToken(&node->as.variableAccess.name);
+            printf(")\n");
             break;
         case NODE_VARIABLE_ASSIGNMENT:
-            printf(" (name: %s)\n", node->as.variableAssignment.name.start);
+            printf(" (name: ");
+            printToken(&node->as.variableAssignment.name);
+            printf(")\n");
             print_ast_node(node->as.variableAssignment.value, depth + 1);
             break;
         default:

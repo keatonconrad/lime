@@ -29,7 +29,14 @@ typedef struct _Compiler {
     int scopeDepth; // Number of blocks surrounding the current bit of code being compiled
 } Compiler;
 
+typedef struct {
+	bool isInLoop;
+	int loopStart; // Stores current loop starting position to use with continue.
+	int jumpToExit; // Stores break statement JUMP to patch for exit. This allows only one break per loop
+} LoopMetadata;
+
 static Compiler* current;
+LoopMetadata loopMetadata;
 
 static void errorAt(Token* token, const char* message) {
     fprintf(stderr, "[line %d] Error", token->line);
@@ -91,6 +98,20 @@ static int emitJump(uint8_t instruction) {
     // return currentChunk()->count - 2;
 }
 
+// Goes back into the bytecode and replaces the operand at the given
+// location with the calculated jump offset
+static void patchJump(int offset) {
+    // -2 to adjust for the bytecode for the jump offset itself
+    int jump = currentChunk()->count - offset - 2;
+
+    if (jump > UINT16_MAX) {
+        error("Too much code to jump over");
+    }
+
+    currentChunk()->code[offset] = (jump >> 8) & 0xff;
+    currentChunk()->code[offset + 1] = jump & 0xff;
+}
+
 static void emitReturn() {
 
     if (true) {
@@ -99,6 +120,19 @@ static void emitReturn() {
         emitByte(OP_NIL);
     }
     emitByte(OP_RETURN);
+}
+
+static void initLoopMetadata() {
+	loopMetadata.isInLoop = false;
+	loopMetadata.loopStart = -1;
+	loopMetadata.jumpToExit = -1;
+}
+
+static void handleLoopMetadata() {
+    if (loopMetadata.jumpToExit != -1) {
+        patchJump(loopMetadata.jumpToExit);
+    }
+    initLoopMetadata();
 }
 
 static uint8_t makeConstant(Value value) {
@@ -226,7 +260,7 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
 
 ObjFunction* compileASTToBytecode(ASTNode* node) {
     if (node == NULL) return NULL;
-    
+
     Compiler compiler;
     initCompiler(&compiler, TYPE_SCRIPT);
     

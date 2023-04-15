@@ -1,7 +1,1 @@
-class Doughnut {
-  init() {
-    this.jam = "blueberry";
-  }
-}
-var d = Doughnut();
-print(d.jam); // undefined
+print(3);

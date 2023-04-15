@@ -38,5 +38,6 @@ Token scanToken();
 void scanTokens(const char* source, List* tokens);
 void printTokens(List* tokens);
 const char* const tokenTypeToString(TokenType type);
+void printToken(Token* token);
 
 #endif

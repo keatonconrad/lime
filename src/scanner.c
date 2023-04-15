@@ -270,3 +270,10 @@ void printTokens(List* tokens) {
         printf("%s, ", tokenTypeToString(token->type));
     }
 }
+
+void printToken(Token* token) {
+    char identifier[256]; // Make sure this buffer is large enough for your identifiers.
+    memcpy(identifier, token->start, token->length);
+    identifier[token->length] = '\0';
+    printf("%s", identifier);
+}
