@@ -117,6 +117,11 @@ static void advance() {
     parser.previous = parser.current;
 
     for (;;) {
+        if (parser.tokenIndex >= parser.tokens->count) {
+            parser.current.type = TOKEN_EOF;
+            break;
+        }
+
         Token* token = (Token*)listGet(parser.tokens, parser.tokenIndex);
         parser.current = *token;
         parser.tokenIndex++;
@@ -143,12 +148,16 @@ static void consume(TokenType type, const char* message) {
 
 // Checks that the current token's TokenType == type
 static bool check(TokenType type) {
+    printf("checking\n");
+    printf("current token: %s\n", tokenTypeToString(parser.current.type));
+    printf("type: %s\n", tokenTypeToString(type));
     return parser.current.type == type;
 }
 
 // If the current token has the given type, consume the token and return true
 static bool match(TokenType type) {
     if (!check(type)) return false;
+    printf("matching\n");
     advance();
     return true;
 }
@@ -636,6 +645,8 @@ static ASTNode* addLocal(Token nameToken) {
     local->depth = -1; // Marks it as uninitialized
     local->isCaptured = false;
 
+
+
     return (ASTNode*)local;
 }
 
@@ -686,7 +697,9 @@ static ASTNode* declareVariable() {
     // if (current->scopeDepth == 0) return NULL;
 
     Token* name = &parser.previous;
-    printf("%s\n", name->start);
+    printf("Variable name: ");
+    printToken(name);
+    printf("\n");
     for (int i = current->localCount - 1; i >= 0; i--) {
         // When we declare a new variable, we start at the end and
         // work backward, looking for an existing variable with the
@@ -700,7 +713,7 @@ static ASTNode* declareVariable() {
             error("Already a variable with this name in this scope.");
         }
     }
-    printf("declareVariable");
+    printf("declareVariable\n");
     return addLocal(*name);
 }
 
@@ -709,7 +722,7 @@ static ASTNode* declareVariable() {
 // table index where it was added
 static Token* parseVariable(const char* errorMessage) {
     consume(TOKEN_IDENTIFIER, errorMessage);
-    printf("parseVariable");
+    printf("parseVariable\n");
 
     ASTNode* variable = declareVariable();
     // If we're in a local scope, exit the function by returning a
@@ -840,17 +853,19 @@ static ASTNode* funDeclaration() {
 }
 
 static ASTNode* varDeclaration() {
-    Token* variableName = parseVariable("Expect variable name.");
-    printf("varDeclaration\n");
-
-    ASTNode* value = NULL;
+    Token variableName = *parseVariable("Expect variable name.");
+    printf("variableName: ");
+    printToken(&variableName);
+    printf("\n");
+    
+    ASTNode* value = malloc(sizeof(ASTNode));
     if (match(TOKEN_EQUAL)) {
         value = expression();
     } else {
         value = new_literal_node(TOKEN_NIL);
     }
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
-    ASTNode* result = new_variable_assignment_node(*variableName, (VariableAccessType)0, 0, value);
+    ASTNode* result = new_variable_assignment_node(variableName, (VariableAccessType)0, 0, value);
     // defineVariable(global);
     return result;
 }
@@ -1006,6 +1021,7 @@ static ASTNode* declaration() {
     } else if (match(TOKEN_FUN)) {
         return funDeclaration();
     } else if (match(TOKEN_VAR)) {
+        printf("should be var declaration\n");
         return varDeclaration();
     } else {
         return statement();

@@ -202,7 +202,6 @@ ASTNode* new_break_statement_node() {
 ASTNode* new_variable_assignment_node(Token name, VariableAccessType accessType, int arg, ASTNode* value) {
     ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
     node->type = NODE_VARIABLE_ASSIGNMENT;
-    print_ast_node(node, 0);
     node->as.variableAssignment.name = name;
     node->as.variableAssignment.accessType = accessType;
     node->as.variableAssignment.arg = arg;
