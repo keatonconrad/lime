@@ -114,7 +114,7 @@ static void patchJump(int offset) {
 
 static void emitReturn() {
 
-    if (true) {
+    if (current->type == TYPE_INITIALIZER) {
         emitBytes(OP_GET_LOCAL, 0);
     } else {
         emitByte(OP_NIL);
@@ -259,7 +259,7 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
                     break;
                 }
                 case ACCESS_GLOBAL: {
-                    emitBytes(OP_SET_GLOBAL, makeConstant(OBJ_VAL(copyString(node->as.variableAssignment.name.start, node->as.variableAssignment.name.length))));
+                    emitBytes(OP_DEFINE_GLOBAL, makeConstant(OBJ_VAL(copyString(node->as.variableAssignment.name.start, node->as.variableAssignment.name.length))));
                     break;
                 }
                 case ACCESS_UPVALUE: {

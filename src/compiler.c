@@ -865,7 +865,7 @@ static ASTNode* varDeclaration() {
         value = new_literal_node(TOKEN_NIL);
     }
     consume(TOKEN_SEMICOLON, "Expect ';' after variable declaration.");
-    ASTNode* result = new_variable_assignment_node(variableName, (VariableAccessType)0, 0, value);
+    ASTNode* result = new_variable_assignment_node(variableName, ACCESS_GLOBAL, 0, value);
     // defineVariable(global);
     return result;
 }
