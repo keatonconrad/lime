@@ -102,8 +102,6 @@ ASTNode* new_expression_statement_node(ASTNode* expression) {
 ASTNode* new_block_node() {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_BLOCK;
-    node->as.block.statements = NULL;
-    node->as.block.statement_count = 0;
     return node;
 }
 
@@ -291,6 +289,25 @@ void print_ast_node(ASTNode* node, int depth) {
             printToken(&node->as.variableAssignment.name);
             printf(")\n");
             print_ast_node(node->as.variableAssignment.value, depth + 1);
+            break;
+        case NODE_WHILE_STATEMENT:
+            printf("\n");
+            print_ast_node(node->as.while_statement.condition, depth + 1);
+            print_ast_node(node->as.while_statement.body, depth + 1);
+            break;
+        case NODE_BLOCK:
+            printf("\n");
+            for (int i = 0; i < node->as.block.statement_count; i++) {
+                print_ast_node(listGet(&node->as.block.statements, i), depth + 1);
+            }
+            break;
+        case NODE_LITERAL:
+            printf(" (value: ");
+            printf("%s", tokenTypeToString(node->as.literal.token_type));
+            printf(")\n");
+            break;
+        case NODE_BREAK_STATEMENT:
+            printf("\n");
             break;
         default:
             printf("\n");

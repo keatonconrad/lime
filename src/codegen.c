@@ -289,6 +289,24 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
             emitConstant(OBJ_VAL(copyString(node->as.string.string, node->as.string.length)));
             break;
         }
+        case NODE_WHILE_STATEMENT: {
+            int loopStart = currentChunk()->count;
+            
+            emit_bytecode_from_ast(node->as.while_statement.condition, compiler);
+            int exitJump = emitJump(OP_JUMP_IF_FALSE);
+            
+            emitByte(OP_POP);
+            emit_bytecode_from_ast(node->as.while_statement.body, compiler);
+            
+            emitLoop(loopStart);
+            
+            patchJump(exitJump);
+            emitByte(OP_POP);
+            break;
+        }
+        case NODE_BREAK_STATEMENT: {
+            break;
+        }
         default:
             return; // Unreachable.
     }

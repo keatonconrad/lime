@@ -144,7 +144,7 @@ struct ASTNode {
             ASTNode* value;
         } return_statement;
         struct {
-            ASTNode** statements;
+            List statements;
             int statement_count;
         } block;
         ClassDeclarationNodeData classDeclaration;

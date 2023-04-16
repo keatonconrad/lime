@@ -748,10 +748,14 @@ static ASTNode* expression() {
 
 static ASTNode* block() {
     ASTNode* node = new_block_node();
+    List* statements = malloc(sizeof(List*));
     while (!check(TOKEN_RIGHT_BRACE) && !check(TOKEN_EOF)) {
-        node->as.block.statements[node->as.block.statement_count++] = declaration();
+        ASTNode* decl = declaration();
+        writeList(statements, decl);
+        node->as.block.statement_count++;
     }
 
+    node->as.block.statements = *statements;
     consume(TOKEN_RIGHT_BRACE, "Expect '}' after block.");
     return node;
 }
@@ -872,6 +876,7 @@ static ASTNode* varDeclaration() {
 }
 
 static ASTNode* expressionStatement() {
+    printf("yup ended up here again\n");
     ASTNode* node = expression();
     consume(TOKEN_SEMICOLON, "Expect ';' after expression.");
     return node;
@@ -977,14 +982,17 @@ static ASTNode* forStatement() {
 }
 
 static ASTNode* whileStatement() {
-    ASTNode* whileNode = malloc(sizeof(ASTNode));
-    whileNode->type = NODE_WHILE_STATEMENT;
-
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
-    whileNode->as.while_statement.condition = expression();
+    ASTNode* condition = expression();
+    print_ast(condition);
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
-    whileNode->as.while_statement.body = statement();
+    ASTNode* body = statement();
+    print_ast(body);
+    ASTNode* whileNode = new_while_statement_node(condition, body);
+
+    printf("whileNode: ");
+    print_ast(whileNode);
 
     return whileNode;
 }
