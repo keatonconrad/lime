@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-set(PROJ_NAME clox)
+set(PROJ_NAME lime)
 
 project(${PROJ_NAME})
 

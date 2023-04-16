@@ -24,6 +24,7 @@
         "iterator": "c",
         "memory": "c",
         "typeinfo": "c",
-        "ios": "c"
+        "ios": "c",
+        "__threading_support": "c"
     }
 }

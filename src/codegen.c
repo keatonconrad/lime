@@ -208,15 +208,13 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
         case NODE_CALL: {
             print_ast_node(node->as.call.callee, 0);
             printf("printed callee node ------- \n");
-            // print_ast_node((ASTNode*)(node->as.call.arguments->values[0]), 0);
+            print_ast_node((ASTNode*)(node->as.call.arguments->values[0]), 0);
             printf("printed values ------- \n");
             emit_bytecode_from_ast(node->as.call.callee, compiler);
-            printf("emitted callee node ------- \n");
             if (node->as.call.arguments != NULL) {
                 printf("arguments count: %d\n", node->as.call.arguments->count);
                 for (int i = 0; i < node->as.call.arguments->count; i++) {
                     emit_bytecode_from_ast((ASTNode*)node->as.call.arguments->values[i], compiler);
-                    printf("emitted argument node ------- \n");
                 }
             } else {
                 printf("no arguments ------- \n");
@@ -284,6 +282,10 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
                     break;
                 }
             }
+            break;
+        }
+        case NODE_STRING: {
+            // emitConstant(OBJ_VAL(copyString(node->as.string.value.start, node->as.string.value.length)));
             break;
         }
         default:
