@@ -127,6 +127,7 @@ struct ASTNode {
         struct {
             ASTNode* condition;
             ASTNode* body;
+            int offset;
         } while_statement;
         struct {
             ASTNode* initializer;
@@ -176,7 +177,7 @@ ASTNode* new_logical_node(TokenType operator, ASTNode* left, ASTNode* right);
 ASTNode* new_grouping_node(ASTNode* expression);
 ASTNode* new_expression_statement_node(ASTNode* expression);
 ASTNode* new_if_statement_node(ASTNode* condition, ASTNode* then_branch, ASTNode* else_branch);
-ASTNode* new_while_statement_node(ASTNode* condition, ASTNode* body);
+ASTNode* new_while_statement_node(ASTNode* condition, ASTNode* body, int offset);
 ASTNode* new_for_statement_node(ASTNode* initializer, ASTNode* condition, ASTNode* increment, ASTNode* body);
 ASTNode* new_function_node(Token name, uint8_t arity, FunctionType type, ASTNode* body);
 ASTNode* new_return_statement_node(ASTNode* value);

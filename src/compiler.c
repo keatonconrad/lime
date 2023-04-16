@@ -982,6 +982,10 @@ static ASTNode* forStatement() {
 }
 
 static ASTNode* whileStatement() {
+    int loopStart = currentChunk()->count;
+    loopMetadata.isInLoop = true;
+    loopMetadata.loopStart = loopStart;
+
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
     ASTNode* condition = expression();
     print_ast(condition);
@@ -989,10 +993,13 @@ static ASTNode* whileStatement() {
 
     ASTNode* body = statement();
     print_ast(body);
-    ASTNode* whileNode = new_while_statement_node(condition, body);
+    int offset = currentChunk()->count - loopStart + 2;
+    ASTNode* whileNode = new_while_statement_node(condition, body, offset);
 
     printf("whileNode: ");
     print_ast(whileNode);
+
+    loopMetadata.isInLoop = false;
 
     return whileNode;
 }

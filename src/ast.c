@@ -133,11 +133,12 @@ ASTNode* new_if_statement_node(ASTNode* condition, ASTNode* then_branch, ASTNode
     return node;
 }
 
-ASTNode* new_while_statement_node(ASTNode* condition, ASTNode* body) {
+ASTNode* new_while_statement_node(ASTNode* condition, ASTNode* body, int offset) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_WHILE_STATEMENT;
     node->as.while_statement.condition = condition;
     node->as.while_statement.body = body;
+    node->as.while_statement.offset = offset;
     return node;
 }
 

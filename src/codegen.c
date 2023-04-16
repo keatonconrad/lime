@@ -75,13 +75,13 @@ static void emitBytes(uint8_t byte1, uint8_t byte2) {
     emitByte(byte2);
 }
 
-static void emitLoop(int loopStart) {
+static void emitLoop(int offset) {
+    printf("offset: %d", offset);
     emitByte(OP_LOOP);
 
     // The + 2 is to take into account the size of the OP_LOOP instruction's
     // own operands which we also need to jump over
     // int offset = currentChunk()->count - loopStart + 2;
-    int offset = 0;
     if (offset > UINT16_MAX) error("Loop body too large.");
 
     emitByte((offset >> 8) & 0xff);
@@ -94,8 +94,7 @@ static int emitJump(uint8_t instruction) {
     emitByte(0xff);
     emitByte(0xff);
 
-    return 3;
-    // return currentChunk()->count - 2;
+    return currentChunk()->count - 2;
 }
 
 // Goes back into the bytecode and replaces the operand at the given
@@ -289,22 +288,26 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
             emitConstant(OBJ_VAL(copyString(node->as.string.string, node->as.string.length)));
             break;
         }
-        case NODE_WHILE_STATEMENT: {
-            int loopStart = currentChunk()->count;
-            
+        case NODE_WHILE_STATEMENT: {            
             emit_bytecode_from_ast(node->as.while_statement.condition, compiler);
             int exitJump = emitJump(OP_JUMP_IF_FALSE);
             
             emitByte(OP_POP);
             emit_bytecode_from_ast(node->as.while_statement.body, compiler);
             
-            emitLoop(loopStart);
+            emitLoop(node->as.while_statement.offset);
             
             patchJump(exitJump);
             emitByte(OP_POP);
             break;
         }
         case NODE_BREAK_STATEMENT: {
+            break;
+        }
+        case NODE_BLOCK: {
+            for (int i = 0; i < node->as.block.statement_count; i++) {
+                emit_bytecode_from_ast((ASTNode*)listGet(&node->as.block.statements, i), compiler);
+            }
             break;
         }
         default:
