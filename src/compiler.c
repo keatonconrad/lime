@@ -978,6 +978,7 @@ static ASTNode* forStatement() {
     forNode->as.for_statement.body = statement();
 
     endScope();
+    print_ast(forNode);
     return forNode;
 }
 

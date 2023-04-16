@@ -1,5 +1,3 @@
-if (false) {
-    print("should be true");
-} else {
-    print("should be false");
+class Doughnut {
+    
 }

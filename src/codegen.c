@@ -327,6 +327,11 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
             patchJump(elseJump);
             break;
         }
+        case NODE_CLASS_DECLARATION: {
+            emitConstant(OBJ_VAL(copyString(node->as.classDeclaration.className.start, node->as.classDeclaration.className.length)));
+            emitByte(OP_CLASS);
+            break;
+        }
         default:
             return; // Unreachable.
     }

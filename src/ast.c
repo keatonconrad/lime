@@ -318,6 +318,22 @@ void print_ast_node(ASTNode* node, int depth) {
                 print_ast_node(node->as.if_statement.else_branch, depth + 1);
             }
             break;
+        case NODE_UNARY:
+            printf(" (operator: %s)\n", tokenTypeToString(node->as.unary.operator));
+            print_ast_node(node->as.unary.operand, depth + 1);
+            break;
+        case NODE_FOR_STATEMENT:
+            printf("\n");
+            print_ast_node(node->as.for_statement.initializer, depth + 1);
+            print_ast_node(node->as.for_statement.condition, depth + 1);
+            print_ast_node(node->as.for_statement.increment, depth + 1);
+            print_ast_node(node->as.for_statement.body, depth + 1);
+            break;
+        case NODE_CLASS_DECLARATION:
+            printf(" (name: ");
+            printToken(&node->as.classDeclaration.className);
+            printf(")\n");
+            break;
         default:
             printf("\n");
             break;
