@@ -435,7 +435,8 @@ static ASTNode* string(bool canAssign) {
     processedString[outputIndex] = '\0';
 
     // Emit the constant with the processed string
-    return new_string_node(processedString);
+    ASTNode* stringNode = new_string_node(processedString, outputIndex);
+    return stringNode;
 }
 
 

@@ -285,7 +285,7 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
             break;
         }
         case NODE_STRING: {
-            // emitConstant(OBJ_VAL(copyString(node->as.string.value.start, node->as.string.value.length)));
+            emitConstant(OBJ_VAL(copyString(node->as.string.string, node->as.string.length)));
             break;
         }
         default:

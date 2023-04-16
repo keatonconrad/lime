@@ -163,10 +163,11 @@ ASTNode* new_function_node(Token name, uint8_t arity, FunctionType type, ASTNode
     return node;
 }
 
-ASTNode* new_string_node(char* value) {
+ASTNode* new_string_node(char* value, int length) {
     ASTNode* node = malloc(sizeof(ASTNode));
     node->type = NODE_STRING;
     node->as.string.string = value;
+    node->as.string.length = length;
     return node;
 }
 

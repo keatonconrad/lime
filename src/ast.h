@@ -154,6 +154,7 @@ struct ASTNode {
         SuperPropertyAccessNodeData superPropertyAccess;
         struct {
             char* string;
+            int length;
         } string;
         struct {
             int offset;
@@ -183,7 +184,7 @@ ASTNode* new_class_declaration_node(Token name, Token superclass, bool hasSuperc
 ASTNode* new_block_node();
 ASTNode* new_super_property_access_node(Token name);
 ASTNode* new_super_call_node(Token name);
-ASTNode* new_string_node(char* string);
+ASTNode* new_string_node(char* string, int length);
 ASTNode* new_continue_statement_node(int offset);
 ASTNode* new_break_statement_node();
 ASTNode* new_variable_assignment_node(Token name, VariableAccessType accessType, int arg, ASTNode* value);
