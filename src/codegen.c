@@ -220,6 +220,7 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
                 printf("no arguments ------- \n");
             }
             emitBytes(OP_CALL, node->as.call.arguments->count);
+            emitByte(OP_POP);
             break;
         }
         case NODE_GET_PROPERTY: {
