@@ -310,6 +310,23 @@ void emit_bytecode_from_ast(ASTNode* node, Compiler* compiler) {
             }
             break;
         }
+        case NODE_IF_STATEMENT: {
+            emit_bytecode_from_ast(node->as.if_statement.condition, compiler);
+            int thenJump = emitJump(OP_JUMP_IF_FALSE);
+            emitByte(OP_POP);
+            emit_bytecode_from_ast(node->as.if_statement.then_branch, compiler);
+            int elseJump = emitJump(OP_JUMP);
+            
+            patchJump(thenJump);
+            emitByte(OP_POP);
+            
+            if (node->as.if_statement.else_branch != NULL) {
+                emit_bytecode_from_ast(node->as.if_statement.else_branch, compiler);
+            }
+            
+            patchJump(elseJump);
+            break;
+        }
         default:
             return; // Unreachable.
     }

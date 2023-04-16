@@ -887,11 +887,11 @@ static ASTNode* ifStatement() {
     ASTNode* condition = expression();
     consume(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
 
-    ASTNode* thenBranch = block();
+    ASTNode* thenBranch = statement();
 
     ASTNode* elseBranch = NULL;
     if (match(TOKEN_ELSE)) {
-        elseBranch = block();
+        elseBranch = statement();
     }
 
     return new_if_statement_node(condition, thenBranch, elseBranch);

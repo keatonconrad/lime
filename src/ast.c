@@ -310,6 +310,14 @@ void print_ast_node(ASTNode* node, int depth) {
         case NODE_BREAK_STATEMENT:
             printf("\n");
             break;
+        case NODE_IF_STATEMENT:
+            printf("\n");
+            print_ast_node(node->as.if_statement.condition, depth + 1);
+            print_ast_node(node->as.if_statement.then_branch, depth + 1);
+            if (node->as.if_statement.else_branch) {
+                print_ast_node(node->as.if_statement.else_branch, depth + 1);
+            }
+            break;
         default:
             printf("\n");
             break;
